@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: assetflow-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: Venu@2201895
+      MYSQL_DATABASE: assetflow
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pVenu@2201895"]
+      timeout: 5s
+      retries: 5
+      interval: 10s
+    networks:
+      - assetflow-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: assetflow-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 5s
+      retries: 5
+      interval: 10s
+    networks:
+      - assetflow-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: assetflow-api
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - DATABASE_URL=mysql://root:Venu@2201895@db:3306/assetflow
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=your_jwt_access_secret_key_production_grade
+      - JWT_REFRESH_SECRET=your_jwt_refresh_secret_key_production_grade
+      - CLIENT_URL=*
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - uploads-data:/usr/src/app/uploads
+      - logs-data:/usr/src/app/logs
+    networks:
+      - assetflow-network
+
+volumes:
+  mysql-data:
+    driver: local
+  redis-data:
+    driver: local
+  uploads-data:
+    driver: local
+  logs-data:
+    driver: local
+
+networks:
+  assetflow-network:
+    driver: bridge
