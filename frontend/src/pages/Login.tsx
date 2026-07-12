@@ -79,13 +79,15 @@ export default function Login() {
             setError("");
             try {
               if (isLogin) {
-                const res = await apiClient.post("/auth/login", { email, password });
-                loginAction(res.data.data.user, res.data.data.accessToken);
+                // Disabled API Auth for now:
+                // const res = await apiClient.post("/auth/login", { email, password });
+                // loginAction(res.data.data.user, res.data.data.accessToken);
+                loginAction({ id: 1, name: "Admin User", email: email || "admin@example.com", role: "Admin" }, "mock-token-123");
                 navigate("/");
               } else {
-                await apiClient.post("/auth/signup", { name, email, password });
+                // await apiClient.post("/auth/signup", { name, email, password });
                 setIsLogin(true);
-                setError("Account created. Please log in.");
+                setError("Mock account created. Please log in.");
               }
             } catch (err: any) {
               setError(err.response?.data?.error?.message || err.response?.data?.message || "Authentication failed");
