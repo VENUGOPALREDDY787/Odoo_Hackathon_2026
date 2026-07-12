@@ -242,24 +242,45 @@ export class AuditRepository {
 
   /**
    * Dashboard aggregate across all active cycles in an org.
+   *
+   * OPTIMIZED: Replaced 6 separate COUNT queries with:
+   *  - 1 count query for audit cycles (total + active)
+   *  - 1 groupBy query for audit item statuses (pending/verified/missing/damaged)
+   * Total: 2 DB round-trips instead of 6.
    */
   async getOrgAuditDashboard(orgId: string) {
-    const [total, active, pending, verified, missing, damaged] = await Promise.all([
-      prisma.auditCycle.count({ where: { organizationId: orgId, deletedAt: null } }),
-      prisma.auditCycle.count({ where: { organizationId: orgId, status: 'In Progress' } }),
-      prisma.auditItem.count({
-        where: { auditCycle: { organizationId: orgId }, verificationStatus: 'Pending' }
+    const [cycleCounts, itemStatusCounts] = await Promise.all([
+      // Query 1: Count cycles by status in one pass
+      prisma.auditCycle.groupBy({
+        by: ['status'],
+        where: { organizationId: orgId, deletedAt: null },
+        _count: { id: true },
       }),
-      prisma.auditItem.count({
-        where: { auditCycle: { organizationId: orgId }, verificationStatus: 'Verified' }
+      // Query 2: Count audit items by status for this org in one pass
+      prisma.auditItem.groupBy({
+        by: ['verificationStatus'],
+        where: { auditCycle: { organizationId: orgId } },
+        _count: { id: true },
       }),
-      prisma.auditItem.count({
-        where: { auditCycle: { organizationId: orgId }, verificationStatus: 'Missing' }
-      }),
-      prisma.auditItem.count({
-        where: { auditCycle: { organizationId: orgId }, verificationStatus: 'Damaged' }
-      })
     ]);
+
+    // Aggregate cycle counts
+    let total = 0, active = 0;
+    for (const row of cycleCounts) {
+      total += row._count.id;
+      if (row.status === 'In Progress') active = row._count.id;
+    }
+
+    // Aggregate item counts
+    let pending = 0, verified = 0, missing = 0, damaged = 0;
+    for (const row of itemStatusCounts) {
+      switch (row.verificationStatus) {
+        case 'Pending':  pending  = row._count.id; break;
+        case 'Verified': verified = row._count.id; break;
+        case 'Missing':  missing  = row._count.id; break;
+        case 'Damaged':  damaged  = row._count.id; break;
+      }
+    }
 
     return { total, active, pending, verified, missing, damaged };
   }

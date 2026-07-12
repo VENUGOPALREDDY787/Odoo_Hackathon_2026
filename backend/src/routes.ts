@@ -12,6 +12,8 @@ import auditRouter from './modules/audit/routes/audit.routes';
 import notificationRouter from './modules/notification/routes/notification.routes';
 import activityLogRouter from './modules/activity-log/routes/activity-log.routes';
 import dashboardRouter from './modules/dashboard/routes/dashboard.routes';
+import reportsRouter from './modules/reports/routes/reports.routes';
+import healthRouter from './modules/health/health.routes';
 
 const router = Router();
 
@@ -29,5 +31,7 @@ router.use('/audit', auditRouter);
 router.use('/notifications', notificationRouter);
 router.use('/activity-logs', activityLogRouter);
 router.use('/dashboard', dashboardRouter);
+router.use('/reports', reportsRouter);
+router.use('/health', healthRouter);
 
 export default router;

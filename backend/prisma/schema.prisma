@@ -56,6 +56,8 @@ model Department {
   auditCycles    AuditCycle[]     @relation("scopeDepartmentId")
   activityLogs   ActivityLog[]
 
+  @@index([organizationId, status])
+  @@index([managerId])
   @@map("departments")
 }
 
@@ -93,6 +95,9 @@ model Employee {
   activityLogs   ActivityLog[]
   notificationPreferences NotificationPreference[]
 
+  @@index([organizationId, status])
+  @@index([organizationId, role, status])
+  @@index([organizationId, departmentId, status])
   @@map("employees")
 }
 
@@ -143,6 +148,11 @@ model Asset {
   auditItems      AuditItem[]
   auditDiscrepancies AuditDiscrepancy[]
 
+  @@index([organizationId, status])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, status, deletedAt])
+  @@index([organizationId, location])
+  @@index([organizationId, acquisitionDate])
   @@map("assets")
 }
 
@@ -172,6 +182,10 @@ model Allocation {
   department         Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   allocator          Employee         @relation("AllocatedByEmployee", fields: [allocatedBy], references: [id], onDelete: Restrict)
 
+  @@index([assetId, status])
+  @@index([employeeId, status])
+  @@index([organizationId, status])
+  @@index([organizationId, expectedReturnDate, status])
   @@map("allocations")
 }
 
@@ -202,6 +216,9 @@ model Transfer {
   requester          Employee         @relation("TransferRequestedBy", fields: [requestedBy], references: [id], onDelete: Restrict)
   approver           Employee?        @relation("TransferApprovedBy", fields: [approvedBy], references: [id], onDelete: SetNull)
 
+  @@index([organizationId, status])
+  @@index([assetId, status])
+  @@index([organizationId, createdAt])
   @@map("transfers")
 }
 
@@ -226,6 +243,10 @@ model ResourceBooking {
   booker                  Employee         @relation(fields: [bookedBy], references: [id], onDelete: Restrict)
   department              Department?      @relation(fields: [bookedOnBehalfOfDeptId], references: [id], onDelete: SetNull)
 
+  @@index([assetId, status, startTime, endTime])
+  @@index([bookedBy, status])
+  @@index([organizationId, status, startTime])
+  @@index([reminderSent, status, startTime])
   @@map("resource_bookings")
 }
 
@@ -264,6 +285,9 @@ model MaintenanceRequest {
   @@index([organizationId, status])
   @@index([organizationId, assetId])
   @@index([organizationId, priority])
+  @@index([assetId, status])
+  @@index([raisedBy, status])
+  @@index([estimatedCompletionDate, status])
   @@map("maintenance_requests")
 }
 
@@ -303,6 +327,7 @@ model AuditCycle {
 
   @@index([organizationId, status])
   @@index([organizationId, scheduledStartDate])
+  @@index([organizationId, status, deletedAt])
   @@map("audit_cycles")
 }
 
@@ -341,6 +366,8 @@ model AuditItem {
 
   @@unique([auditCycleId, assetId])
   @@index([auditCycleId, verificationStatus])
+  @@index([assetId, verificationStatus])
+  @@index([auditorId, verificationStatus])
   @@map("audit_items")
 }
 
@@ -361,6 +388,7 @@ model AuditDiscrepancy {
   asset               Asset            @relation(fields: [assetId], references: [id], onDelete: Restrict)
 
   @@index([auditCycleId, discrepancyType])
+  @@index([assetId, discrepancyType])
   @@map("audit_discrepancies")
 }
 
@@ -397,6 +425,8 @@ model Notification {
 
   @@index([organizationId, recipientId, status])
   @@index([organizationId, recipientId, createdAt])
+  @@index([recipientId, isRead, createdAt])
+  @@index([recipientId, status, deletedAt])
   @@map("notifications")
 }
 
@@ -456,5 +486,7 @@ model ActivityLog {
 
   @@index([organizationId, userId, action])
   @@index([organizationId, createdAt])
+  @@index([organizationId, module, createdAt])
+  @@index([userId, module, createdAt])
   @@map("activity_logs")
 }
