@@ -85,4 +85,27 @@ export function startOverdueCron(): void {
       console.error('[Cron] Audit reminder error:', error);
     }
   });
+
+  // ─── Every Midnight: Auto-Archive Notifications ───────────────────────────
+  cron.schedule('0 0 * * *', async () => {
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const archivedCount = await prisma.notification.updateMany({
+        where: {
+          status: 'Read',
+          createdAt: { lt: thirtyDaysAgo },
+          deletedAt: null
+        },
+        data: { status: 'Archived' }
+      });
+
+      if (archivedCount.count > 0) {
+        console.log(`[Cron] Midnight cleanup: Archived ${archivedCount.count} notification(s).`);
+      }
+    } catch (error) {
+      console.error('[Cron] Midnight cleanup job error:', error);
+    }
+  });
 }

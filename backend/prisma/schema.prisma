@@ -26,6 +26,8 @@ model Organization {
   audits          AuditCycle[]
   notifications   Notification[]
   activityLogs    ActivityLog[]
+  notificationPreferences NotificationPreference[]
+  notificationTemplates   NotificationTemplate[]
 
   @@map("organizations")
 }
@@ -52,6 +54,7 @@ model Department {
   transfersTo    Transfer[]       @relation("TransferToDept")
   bookings       ResourceBooking[]
   auditCycles    AuditCycle[]     @relation("scopeDepartmentId")
+  activityLogs   ActivityLog[]
 
   @@map("departments")
 }
@@ -88,6 +91,7 @@ model Employee {
   verifiedItems  AuditItem[]      @relation("AuditItemAuditor")
   notifications  Notification[]
   activityLogs   ActivityLog[]
+  notificationPreferences NotificationPreference[]
 
   @@map("employees")
 }
@@ -384,12 +388,49 @@ model Notification {
   relatedEntityType  String?          @map("related_entity_type")
   relatedEntityId    String?          @map("related_entity_id")
   isRead             Boolean          @default(false) @map("is_read")
+  status             String           @default("Unread") // 'Unread', 'Read', 'Archived'
   createdAt          DateTime         @default(now()) @map("created_at")
+  deletedAt          DateTime?        @map("deleted_at")
 
   organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   recipient          Employee         @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId, recipientId, status])
+  @@index([organizationId, recipientId, createdAt])
   @@map("notifications")
+}
+
+model NotificationPreference {
+  id                 String           @id @default(uuid())
+  organizationId     String           @map("organization_id")
+  employeeId         String           @map("employee_id")
+  type               String           // e.g. 'all' or specific notification type
+  emailEnabled       Boolean          @default(true) @map("email_enabled")
+  inAppEnabled       Boolean          @default(true) @map("in_app_enabled")
+  pushEnabled        Boolean          @default(true) @map("push_enabled")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee           Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, type])
+  @@map("notification_preferences")
+}
+
+model NotificationTemplate {
+  id                 String           @id @default(uuid())
+  organizationId     String           @map("organization_id")
+  type               String           // e.g. 'Asset Assigned'
+  titleTemplate      String           @map("title_template")
+  bodyTemplate       String           @db.Text @map("body_template")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, type])
+  @@map("notification_templates")
 }
 
 model ActivityLog {
@@ -397,13 +438,23 @@ model ActivityLog {
   organizationId     String           @map("organization_id")
   userId             String?          @map("user_id")
   action             String
+  module             String?          // e.g., 'Auth', 'Asset', 'Booking', etc.
   entityType         String           @map("entity_type")
   entityId           String?          @map("entity_id")
-  details            Json?
+  oldValue           Json?            @map("old_value")
+  newValue           Json?            @map("new_value")
+  departmentId       String?          @map("department_id")
+  ipAddress          String?          @map("ip_address")
+  browser            String?
+  device             String?
+  requestId          String?          @map("request_id")
   createdAt          DateTime         @default(now()) @map("created_at")
 
   organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user               Employee?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department         Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
+  @@index([organizationId, userId, action])
+  @@index([organizationId, createdAt])
   @@map("activity_logs")
 }

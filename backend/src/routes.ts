@@ -9,6 +9,9 @@ import transferRouter from './modules/allocation/routes/transfer.routes';
 import bookingRouter from './modules/booking/routes/booking.routes';
 import maintenanceRouter from './modules/maintenance/routes/maintenance.routes';
 import auditRouter from './modules/audit/routes/audit.routes';
+import notificationRouter from './modules/notification/routes/notification.routes';
+import activityLogRouter from './modules/activity-log/routes/activity-log.routes';
+import dashboardRouter from './modules/dashboard/routes/dashboard.routes';
 
 const router = Router();
 
@@ -23,5 +26,8 @@ router.use('/transfers', transferRouter);
 router.use('/bookings', bookingRouter);
 router.use('/maintenance', maintenanceRouter);
 router.use('/audit', auditRouter);
+router.use('/notifications', notificationRouter);
+router.use('/activity-logs', activityLogRouter);
+router.use('/dashboard', dashboardRouter);
 
 export default router;
