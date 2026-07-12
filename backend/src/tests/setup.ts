@@ -23,26 +23,6 @@ jest.mock('../database/db', () => {
     groupBy: jest.fn().mockResolvedValue([]),
   });
 
-  const prismaMock = {
-    $queryRawUnsafe: jest.fn().mockResolvedValue([]),
-    $queryRaw: jest.fn().mockResolvedValue([]),
-    $executeRaw: jest.fn().mockResolvedValue(0),
-    organization: modelMock(),
-    department: modelMock(),
-    employee: modelMock(),
-    assetCategory: modelMock(),
-    asset: modelMock(),
-    allocation: modelMock(),
-    transfer: modelMock(),
-    resourceBooking: modelMock(),
-    maintenanceRequest: modelMock(),
-    auditCycle: modelMock(),
-    auditItem: modelMock(),
-    auditDiscrepancy: modelMock(),
-    notification: modelMock(),
-    activityLog: modelMock(),
-  };
-
   return {
     __esModule: true,
     default: {
