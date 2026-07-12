@@ -24,15 +24,20 @@
    - [Prerequisites](#1-prerequisites)
    - [Backend Setup](#2-backend-setup)
    - [Frontend Setup](#3-frontend-setup)
-6. [⏰ Real-Time & Automation Systems](#-real-time--automation-systems)
-7. [📂 Directory Structure](#-directory-structure)
-8. [📚 Developer Documentation Links](#-developer-documentation-links)
+6. [🛠️ Setup Command Cheat-Sheet](#️-setup-command-cheat-sheet)
+7. [⏰ Real-Time & Automation Systems](#-real-time--automation-systems)
+8. [📂 Directory Structure](#-directory-structure)
+9. [🚨 Troubleshooting & FAQ](#-troubleshooting--faq)
+10. [📚 Developer Documentation Links](#-developer-documentation-links)
 
 ---
 
 ## 🚀 Introduction
 
 **AssetFlow** is an enterprise-grade, multi-tenant, role-based ERP system designed to govern the entire lifecycle of corporate physical assets and resources. From real-time room bookings to deep-level department hierarchy setups, sequential barcode tagging, automated maintenance workflows, and rigorous audit locking mechanisms, AssetFlow provides a single source of truth for organizational resource allocation.
+
+> [!NOTE]
+> AssetFlow was built with performance and security at its core. It leverages MariaDB/MySQL connection pooling, Redis caching for dashboard metrics, and JWT session isolation.
 
 ---
 
@@ -45,7 +50,7 @@
 
 ### 🏷️ 2. Smart Asset Registry
 * **Barcode Tagging:** Generate unique, sequential asset tags (`ACME-COMP-0001`) upon creation.
-* **Custom Attributes:** Extend asset categories with dynamic JSON schemas (e.g. storage size, warranty date).
+* **Custom Attributes:** Extend asset categories with dynamic JSON schemas (e.g., storage size, warranty date).
 * **Search & Filters:** Real-time paginated grid containing advanced condition, location, and owner filter tags.
 
 ### 🔄 3. Allocation & Lifecycle Manager
@@ -130,7 +135,7 @@ The application enforces fine-grained access checks across four main user roles:
 Ensure you have the following installed on your machine:
 * **Node.js** (v18.0.0 or higher)
 * **npm** (v9.0.0 or higher)
-* **MySQL** (v8.0 or higher, running locally on port `3306`)
+* **MySQL / MariaDB** (v8.0 or higher, running locally on port `3306`)
 
 ---
 
@@ -143,7 +148,7 @@ Ensure you have the following installed on your machine:
 
 2. **Install Dependencies:**
    ```bash
-   npm install
+   npm install --legacy-peer-deps
    ```
 
 3. **Configure Environment Variables:**
@@ -165,13 +170,16 @@ Ensure you have the following installed on your machine:
 5. **Seed the Database:**
    Populate the database with departments, default categories, assets, and role-based test users:
    ```bash
-   npm run db:seed
+   npx prisma db seed
    ```
-   **Default Test Credentials (Password is `<Role>@123`):**
-   * **Admin:** `admin@acme.com` (password: `Admin@123`)
-   * **Asset Manager:** `manager@acme.com` (password: `Manager@123`)
-   * **Department Head:** `head@acme.com` (password: `Head@123`)
-   * **Employee:** `employee@acme.com` (password: `Employee@123`)
+   
+   > [!IMPORTANT]  
+   > **Default Seeded Credentials (All passwords are `<Role>@123`):**
+   > * 🔑 **Admin:** `admin@acme.com` (password: `Admin@123`)
+   > * 🔑 **Asset Manager:** `manager@acme.com` (password: `Manager@123`)
+   > * 🔑 **Department Head:** `head@acme.com` (password: `Head@123`)
+   > * 🔑 **Employee:** `employee@acme.com` (password: `Employee@123`)
+   > * 🔑 **Employee 2:** `raj@acme.com` (password: `Employee@123`)
 
 6. **Start the Development Server:**
    ```bash
@@ -190,7 +198,7 @@ Ensure you have the following installed on your machine:
 
 2. **Install Dependencies:**
    ```bash
-   npm install
+   npm install --legacy-peer-deps
    ```
 
 3. **Start the Vite Dev Server:**
@@ -198,6 +206,23 @@ Ensure you have the following installed on your machine:
    npm run dev
    ```
    The application dashboard will boot and become accessible on `http://localhost:5173`.
+
+---
+
+## 🛠️ Setup Command Cheat-Sheet
+
+| Context | Action | Command |
+| :--- | :--- | :--- |
+| **Backend** | Dependency Install | `npm install --legacy-peer-deps` |
+| **Backend** | Run Database Migrations | `npx prisma migrate dev --name init` |
+| **Backend** | Generate Client Models | `npx prisma generate` |
+| **Backend** | Run DB Seed Script | `npx prisma db seed` |
+| **Backend** | Start Dev Server | `npm run dev` |
+| **Backend** | Run Jest Tests | `npx jest` |
+| **Frontend** | Dependency Install | `npm install --legacy-peer-deps` |
+| **Frontend** | Start Vite Client | `npm run dev` |
+| **Frontend** | Check Lints | `npm run lint` |
+| **Frontend** | Compile Production Build | `npm run build` |
 
 ---
 
@@ -233,6 +258,26 @@ AssetFlow/
 │
 └── docs/                   # Additional documentation & system specifications
 ```
+
+---
+
+## 🚨 Troubleshooting & FAQ
+
+#### Q: I get `Error: DATABASE_URL environment variable is not defined.` when running seeds or starting the server.
+> [!TIP]
+> Ensure you have copied `.env.example` to `.env` in the `backend/` directory, and that the file is populated. If you are running commands in nested subdirectories, verify the current working directory is `backend/`.
+
+#### Q: The compiler complains about missing Jest symbols (e.g. `jest` is not defined).
+> [!TIP]
+> This happens when types are not mapped globally. Make sure your `backend/tsconfig.json` contains `"types": ["jest", "node"]` under compiler options. We have already updated this in the main repository config.
+
+#### Q: `npm install` throws resolving peer conflicts for typescript or jest.
+> [!TIP]
+> Because of version boundaries on testing libraries under TypeScript 7, always install using `npm install --legacy-peer-deps`.
+
+#### Q: How do I rebuild the Prisma Client after database modifications?
+> [!TIP]
+> Run `npx prisma generate` in the `backend/` directory to rebuild type-definitions for the client database client wrapper.
 
 ---
 

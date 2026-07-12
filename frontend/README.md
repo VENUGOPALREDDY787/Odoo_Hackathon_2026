@@ -14,11 +14,26 @@
 
 ---
 
+## 📖 Table of Contents
+1. [Overview](#-overview)
+2. [⚡ Tech Stack & UI Orchestration](#-tech-stack--ui-orchestration)
+3. [📂 Core Views & Pages](#-core-views--pages)
+4. [🏗️ State & Client Architecture](#️-state--client-architecture)
+5. [🚀 Getting Started](#-getting-started)
+6. [🛠️ Setup Command Cheat-Sheet](#️-setup-command-cheat-sheet)
+7. [🚨 Troubleshooting & FAQ](#-troubleshooting--faq)
+8. [🧪 Styling Guidelines & Customization](#-styling-guidelines--customization)
+
+---
+
 ## 📖 Overview
 
 The **AssetFlow Client Portal** is a high-performance, single-page application (SPA) built using React 19, TypeScript, and Vite. It serves as the primary administration and employee self-service interface for the AssetFlow ERP system. 
 
 It is designed with a premium, dark-themed dashboard style featuring smooth micro-animations, real-time alert updates, and a fully responsive grid-layout.
+
+> [!NOTE]
+> All interface actions communicate asynchronously with the backend gateway. State synchronization is managed using cache-aside structures inside TanStack Query, keeping network payload sizes lightweight.
 
 ---
 
@@ -30,7 +45,7 @@ It is designed with a premium, dark-themed dashboard style featuring smooth micr
 * **Tailwind CSS:** Responsive utilities with custom animation configurations (`tailwindcss-animate`).
 * **Framer Motion & GSAP:** Dynamic page-load transitions, modal pop-ups, and custom staggered list timelines.
 * **Lenis:** Smooth, inertia-based scrolling for premium scrolling feel across complex data grids.
-* **Lucide React:** Beautiful, consistent vector icon set.
+* **Iconography:** Lucide React for consistent vector icons.
 * **html2canvas & jsPDF:** Client-side generation and rendering of downloadable PDF reports.
 * **Oxlint:** Ultra-fast rust-based linter enforcing clean code guidelines.
 
@@ -71,11 +86,9 @@ Global states are modularly divided into Zustand store modules:
 
 ## 🚀 Getting Started
 
-### 1. Setup Command Reference
-
 1. **Install NPM Modules:**
    ```bash
-   npm install
+   npm install --legacy-peer-deps
    ```
 
 2. **Run in Development Mode:**
@@ -95,6 +108,34 @@ Global states are modularly divided into Zustand store modules:
    npm run build
    ```
    Compiles optimized static assets inside the `dist/` directory.
+
+---
+
+## 🛠️ Setup Command Cheat-Sheet
+
+| Action | Command | Description |
+| :--- | :--- | :--- |
+| **Install Packages** | `npm install --legacy-peer-deps` | Installs modules bypassing peer-dependency boundaries. |
+| **Run Dev Server** | `npm run dev` | Runs Vite dev server with Hot Module Replacement (HMR). |
+| **Run Linter** | `npm run lint` | Runs `oxlint` static code analysis. |
+| **Compile Build** | `npm run build` | Builds a production-optimized folder inside `dist/`. |
+| **Preview Build** | `npm run preview` | Spins up a local web server displaying the production bundle. |
+
+---
+
+## 🚨 Troubleshooting & FAQ
+
+#### Q: The build warning: `Some chunks are larger than 500 kB after minification` shows up.
+> [!NOTE]
+> This is a standard warning from Vite/Rollup when large modules (like GSAP or jsPDF) are compiled. It does not affect functionality. If desired, you can configure code-splitting (dynamic imports) under `vite.config.ts`.
+
+#### Q: I see connection errors on WebSocket / Real-time updates.
+> [!TIP]
+> Ensure the backend development server is running on `http://localhost:5000`. The client websocket adapter expects the gateway to be online to complete the initial handshake protocol.
+
+#### Q: How do I change the default API base URL?
+> [!TIP]
+> API requests use an Axios client helper. You can configure endpoint paths or base gateways inside [src/lib/](file:///Users/shaswat/Documents/odoo/Odoo_Hackathon_2026/frontend/src/lib/).
 
 ---
 
