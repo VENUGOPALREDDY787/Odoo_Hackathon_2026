@@ -12,6 +12,7 @@ export default function Login() {
   const [password, setPassword] = useState("password");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState("");
   const navigate = useNavigate();
   const loginAction = useAuthStore((state) => state.login);
 
@@ -30,7 +31,7 @@ export default function Login() {
         navigate("/");
       } else {
         setIsLogin(true);
-        alert(`${name || "Employee"} account created as Employee. Admin can promote roles from Organization Setup.`);
+        setNotice(`${name || "Employee"} account created as Employee. Admin can promote roles from Organization Setup.`);
       }
       setLoading(false);
     }, 250);
@@ -54,6 +55,7 @@ export default function Login() {
 
       <section className="relative z-10 flex items-center justify-center p-6 md:p-12">
         <NeoCard color="bg-white" className="w-full max-w-md" interactive={false}>
+          {notice && <div className="mb-5 bg-[#ccff00] border-4 border-black rounded-xl p-3 font-black uppercase text-sm">{notice}</div>}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-[#ccff00] border-4 border-black rounded-xl shadow-[4px_4px_0_0_#000] mb-4 rotate-3"><Boxes /></div>
             <h2 className="text-4xl font-black uppercase tracking-tighter">{isLogin ? "Welcome Back." : "Employee Signup."}</h2>

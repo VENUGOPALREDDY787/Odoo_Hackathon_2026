@@ -8,6 +8,7 @@ export default function AssetAllocation() {
   const [assetTag, setAssetTag] = useState("AF-0001");
   const [holder, setHolder] = useState("Aarav Mehta");
   const [returnDate, setReturnDate] = useState("2026-07-20");
+  const [workflowMessage, setWorkflowMessage] = useState("");
   const selectedAsset = useMemo(() => assets.find((asset) => asset.tag === assetTag) || assets[0], [assetTag]);
   const isBlocked = selectedAsset.status === "Allocated" || selectedAsset.status === "Under Maintenance" || selectedAsset.status === "Reserved";
 
@@ -18,6 +19,15 @@ export default function AssetAllocation() {
         <h1 className="mt-3 text-5xl md:text-7xl font-black uppercase tracking-tighter">Allocation.</h1>
         <p className="font-bold text-neutral-600 uppercase mt-2 tracking-widest">Allocate, transfer, return, and block double-allocation</p>
       </div>
+
+      {workflowMessage && (
+        <NeoCard color="bg-[#ccff00]" className="p-4" interactive={false}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <p className="font-black uppercase">{workflowMessage}</p>
+            <NeoButton variant="black" className="px-4 py-2 text-xs" onClick={() => setWorkflowMessage("")}>Dismiss</NeoButton>
+          </div>
+        </NeoCard>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-[0.95fr_1.05fr] gap-8">
         <NeoCard color="bg-purple-200" interactive={false}>
@@ -53,9 +63,9 @@ export default function AssetAllocation() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <NeoButton variant="black" disabled={isBlocked} onClick={() => alert(`${selectedAsset.tag} allocated to ${holder}.`)}>Allocate</NeoButton>
-              <NeoButton variant="orange" disabled={!isBlocked} onClick={() => alert(`Transfer request created for ${selectedAsset.tag}.`)}><Repeat2 size={18} /> Transfer</NeoButton>
-              <NeoButton variant="white" onClick={() => alert(`${selectedAsset.tag} returned with condition notes.`)}><RotateCcw size={18} /> Return</NeoButton>
+              <NeoButton variant="black" disabled={isBlocked} onClick={() => setWorkflowMessage(`${selectedAsset.tag} allocated to ${holder} until ${returnDate}.`)}>Allocate</NeoButton>
+              <NeoButton variant="orange" disabled={!isBlocked} onClick={() => setWorkflowMessage(`Transfer request created for ${selectedAsset.tag}. Current holder: ${selectedAsset.holder}.`)}><Repeat2 size={18} /> Transfer</NeoButton>
+              <NeoButton variant="white" onClick={() => setWorkflowMessage(`${selectedAsset.tag} returned and queued for condition check-in.`)}><RotateCcw size={18} /> Return</NeoButton>
             </div>
           </div>
         </NeoCard>

@@ -4,12 +4,15 @@ import { motion } from "framer-motion";
 import { ArrowUpRight, Bell, Box, CalendarCheck, ClipboardCheck, Repeat2, ShieldCheck, Wrench } from "lucide-react";
 import { NeoBadge, NeoButton, NeoCard, NeoInput, NeoModal, NeoSelect } from "../components/ui/NeoBrutalist";
 import { assets, maintenanceRequests, notifications, stats, statusColor } from "../lib/assetflow-data";
+import { downloadTextFile, toCsv } from "../lib/downloads";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [maintenanceForm, setMaintenanceForm] = useState({ asset: "AF-0001", issue: "", priority: "Medium" });
+  const [notice, setNotice] = useState("");
+  const [quickRequests, setQuickRequests] = useState(maintenanceRequests);
 
   const kpis = [
     { label: "Available", value: stats.available, icon: <Box size={22} />, color: "bg-[#ccff00]" },
@@ -61,6 +64,8 @@ export default function Dashboard() {
         </NeoCard>
       </section>
 
+      {notice && <NeoCard color="bg-[#ccff00]" className="p-4" interactive={false}><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"><p className="font-black uppercase">{notice}</p><NeoButton variant="black" className="px-4 py-2 text-xs" onClick={() => setNotice("")}>Dismiss</NeoButton></div></NeoCard>}
+
       <section className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         {kpis.map((kpi, index) => (
           <motion.div key={kpi.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}>
@@ -93,7 +98,7 @@ export default function Dashboard() {
                   <h3 className="mt-2 text-xl font-black uppercase">{asset.name}</h3>
                   <p className="font-bold text-neutral-600 text-sm">{asset.location} / {asset.holder}</p>
                 </div>
-                <NeoButton variant="white" className="py-2 px-4 text-xs" onClick={() => alert(`${asset.tag} history opened.`)}>History</NeoButton>
+                <NeoButton variant="white" className="py-2 px-4 text-xs" onClick={() => setNotice(`${asset.tag} history: holder ${asset.holder}, status ${asset.status}, location ${asset.location}.`)}>History</NeoButton>
               </div>
             ))}
           </div>
@@ -108,7 +113,7 @@ export default function Dashboard() {
             <NeoButton variant="black" className="py-2 px-4 text-xs" onClick={() => setIsReportOpen(true)}>Generate Report</NeoButton>
           </div>
           <div className="space-y-4">
-            {maintenanceRequests.map((request) => (
+            {quickRequests.map((request) => (
               <div key={request.id} className="bg-white border-4 border-black rounded-xl p-4 shadow-[4px_4px_0_0_#000]">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                   <div>
@@ -137,7 +142,18 @@ export default function Dashboard() {
           <NeoSelect className="w-full" value={maintenanceForm.priority} onChange={(event) => setMaintenanceForm((form) => ({ ...form, priority: event.target.value }))}>
             <option>Low</option><option>Medium</option><option>High</option><option>Critical</option>
           </NeoSelect>
-          <NeoButton className="w-full" variant="black" onClick={() => alert(maintenanceForm.issue ? "Maintenance request submitted." : "Add an issue description first.")}>Submit Request</NeoButton>
+          <NeoButton className="w-full" variant="black" onClick={() => {
+            if (!maintenanceForm.issue) {
+              setNotice("Add an issue description first.");
+              return;
+            }
+            const asset = assets.find((item) => item.tag === maintenanceForm.asset);
+            const request = { id: `MR-${200 + quickRequests.length}`, asset: asset ? asset.name : maintenanceForm.asset, issue: maintenanceForm.issue, priority: maintenanceForm.priority, status: "Pending", owner: "You", technician: "-", age: "now" };
+            setQuickRequests((items) => [request, ...items]);
+            setMaintenanceForm({ asset: "AF-0001", issue: "", priority: "Medium" });
+            setIsMaintenanceOpen(false);
+            setNotice(`${request.id} submitted and added to the approval workbench.`);
+          }}>Submit Request</NeoButton>
         </div>
       </NeoModal>
 
@@ -145,7 +161,11 @@ export default function Dashboard() {
         <div className="space-y-4">
           <NeoSelect className="w-full"><option>Asset Utilization Trends</option><option>Department Allocation Summary</option><option>Maintenance Frequency</option><option>Resource Booking Heatmap</option><option>Audit Discrepancies</option></NeoSelect>
           <NeoSelect className="w-full"><option>PDF</option><option>CSV</option><option>XLSX</option></NeoSelect>
-          <NeoButton variant="black" className="w-full" onClick={() => alert("Report export queued.")}>Export Report</NeoButton>
+          <NeoButton variant="black" className="w-full" onClick={() => {
+            downloadTextFile("assetflow-dashboard-report.csv", toCsv(assets.map((asset) => ({ Tag: asset.tag, Asset: asset.name, Status: asset.status, Holder: asset.holder, Location: asset.location }))), "text/csv;charset=utf-8");
+            setIsReportOpen(false);
+            setNotice("Dashboard report downloaded as CSV.");
+          }}>Export Report</NeoButton>
         </div>
       </NeoModal>
     </div>
