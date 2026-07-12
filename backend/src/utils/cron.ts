@@ -1,127 +1,88 @@
 import cron from 'node-cron';
 import prisma from '../database/db';
-import * as socket from './socket';
 import { overdueService } from '../modules/allocation/service/overdue.service';
+import { bookingStatusService } from '../modules/booking/service/booking-status.service';
+import { reminderService as bookingReminderService } from '../modules/booking/service/reminder.service';
+import { maintenanceReminderService } from '../modules/maintenance/service/maintenance-reminder.service';
+import { auditReminderService } from '../modules/audit/service/audit-reminder.service';
 
 /**
- * Initializes and schedules background cron jobs.
+ * startOverdueCron — Registers all background scheduled jobs.
+ *
+ * Schedule Map:
+ *   every-1-min   → booking status transitions + reminder dispatch
+ *   every-5-min   → overdue allocation scan
+ *   every-60-min  → maintenance overdue reminders
  */
 export function startOverdueCron(): void {
-  // Run checks every 5 minutes in development
-  cron.schedule('*/5 * * * *', async () => {
-    console.log('[Cron Job] Checking for overdue allocations and resource booking states...');
-    const now = new Date();
 
+  // ─── Every Minute: Booking Status Transitions + Reminders ─────────────────
+  cron.schedule('*/1 * * * *', async () => {
     try {
-      // -----------------------------------------------------------------
-      // 1. Process Overdue Allocations (Scoped by Active Organizations)
-      // -----------------------------------------------------------------
+      // 1. Transition Upcoming → Ongoing for bookings whose startTime has passed
+      const started = await bookingStatusService.processStartingBookings();
+      if (started > 0) {
+        console.log(`[Cron] ${started} booking(s) transitioned to Ongoing.`);
+      }
+
+      // 2. Transition Ongoing → Completed for bookings whose endTime has passed
+      const completed = await bookingStatusService.processEndingBookings();
+      if (completed > 0) {
+        console.log(`[Cron] ${completed} booking(s) transitioned to Completed.`);
+      }
+
+      // 3. Dispatch reminder notifications for upcoming bookings
+      const reminders = await bookingReminderService.sendPendingReminders();
+      if (reminders > 0) {
+        console.log(`[Cron] ${reminders} booking reminder(s) dispatched.`);
+      }
+    } catch (error) {
+      console.error('[Cron] Booking status transition error:', error);
+    }
+  });
+
+  // ─── Every 5 Minutes: Overdue Allocation Detection ────────────────────────
+  cron.schedule('*/5 * * * *', async () => {
+    try {
       const orgs = await prisma.organization.findMany({ select: { id: true } });
       for (const org of orgs) {
-        await overdueService.checkOverdueAllocations(org.id);
+        const count = await overdueService.checkOverdueAllocations(org.id);
+        if (count > 0) {
+          console.log(`[Cron] ${count} overdue allocation(s) detected for org ${org.id}.`);
+        }
       }
-
-      // -----------------------------------------------------------------
-      // 2. Process Resource Bookings: Upcoming -> Ongoing
-      // -----------------------------------------------------------------
-      const bookingsToOngoing = await prisma.resourceBooking.findMany({
-        where: {
-          status: 'Upcoming',
-          startTime: { lte: now }
-        },
-        include: {
-          asset: true
-        }
-      });
-
-      for (const booking of bookingsToOngoing) {
-        await prisma.resourceBooking.update({
-          where: { id: booking.id },
-          data: { status: 'Ongoing' }
-        });
-
-        // Flip parent asset state to Reserved if it is Available
-        if (booking.asset.status === 'Available') {
-          await prisma.asset.update({
-            where: { id: booking.assetId },
-            data: { status: 'Reserved' }
-          });
-        }
-
-        // Notify the booker
-        const notif = await prisma.notification.create({
-          data: {
-            organizationId: booking.organizationId,
-            recipientId: booking.bookedBy,
-            title: 'Booking In Progress',
-            message: `Your reservation for shared resource "${booking.asset.name}" has officially started.`,
-            type: 'Booking confirmed',
-            relatedEntityType: 'Booking',
-            relatedEntityId: booking.id
-          }
-        });
-        socket.emitToUser(booking.bookedBy, 'notification', notif);
-
-        // Broadcast updates to the organization (to update calendar/UI slots)
-        socket.emitToOrg(booking.organizationId, 'booking_update', { bookingId: booking.id, status: 'Ongoing' });
-        socket.emitToOrg(booking.organizationId, 'kpi_update', { type: 'booking' });
-      }
-
-      // -----------------------------------------------------------------
-      // 3. Process Resource Bookings: Ongoing -> Completed
-      // -----------------------------------------------------------------
-      const bookingsToCompleted = await prisma.resourceBooking.findMany({
-        where: {
-          status: 'Ongoing',
-          endTime: { lte: now }
-        },
-        include: {
-          asset: true
-        }
-      });
-
-      for (const booking of bookingsToCompleted) {
-        await prisma.resourceBooking.update({
-          where: { id: booking.id },
-          data: { status: 'Completed' }
-        });
-
-        // Revert parent asset status to Available if no other active/ongoing bookings exist
-        const activeCount = await prisma.resourceBooking.count({
-          where: {
-            assetId: booking.assetId,
-            status: { in: ['Ongoing', 'Upcoming'] }
-          }
-        });
-
-        if (activeCount === 0 && booking.asset.status === 'Reserved') {
-          await prisma.asset.update({
-            where: { id: booking.assetId },
-            data: { status: 'Available' }
-          });
-        }
-
-        // Notify the booker
-        const notif = await prisma.notification.create({
-          data: {
-            organizationId: booking.organizationId,
-            recipientId: booking.bookedBy,
-            title: 'Booking Concluded',
-            message: `Your reservation for shared resource "${booking.asset.name}" has completed.`,
-            type: 'Booking confirmed',
-            relatedEntityType: 'Booking',
-            relatedEntityId: booking.id
-          }
-        });
-        socket.emitToUser(booking.bookedBy, 'notification', notif);
-
-        // Broadcast update signals
-        socket.emitToOrg(booking.organizationId, 'booking_update', { bookingId: booking.id, status: 'Completed' });
-        socket.emitToOrg(booking.organizationId, 'kpi_update', { type: 'booking' });
-      }
-
     } catch (error) {
-      console.error('[Cron Job Error] Error executing scheduled checks:', error);
+      console.error('[Cron] Overdue allocation check error:', error);
+    }
+  });
+
+  // ─── Every Hour: Maintenance Overdue Reminders ────────────────────────────
+  cron.schedule('0 * * * *', async () => {
+    try {
+      const orgs = await prisma.organization.findMany({ select: { id: true } });
+      for (const org of orgs) {
+        const count = await maintenanceReminderService.sendOverdueReminders(org.id);
+        if (count > 0) {
+          console.log(`[Cron] ${count} overdue maintenance reminder(s) sent for org ${org.id}.`);
+        }
+      }
+    } catch (error) {
+      console.error('[Cron] Maintenance overdue reminder error:', error);
+    }
+  });
+
+  // ─── Every Hour: Audit Overdue Detection + Pending Verification Reminders ────
+  cron.schedule('0 * * * *', async () => {
+    try {
+      const orgs = await prisma.organization.findMany({ select: { id: true } });
+      for (const org of orgs) {
+        const overdue = await auditReminderService.processOverdueAudits(org.id);
+        const reminded = await auditReminderService.sendPendingVerificationReminders(org.id);
+        if (overdue > 0) console.log(`[Cron] ${overdue} overdue audit(s) for org ${org.id}.`);
+        if (reminded > 0) console.log(`[Cron] ${reminded} audit pending reminder(s) sent for org ${org.id}.`);
+      }
+    } catch (error) {
+      console.error('[Cron] Audit reminder error:', error);
     }
   });
 }
