@@ -18,15 +18,26 @@ import { Request, Response } from 'express';
  */
 
 function createRedisStore(prefix: string) {
+  if (process.env.NODE_ENV !== 'production') {
+    return undefined;
+  }
   try {
     return new RedisStore({
       sendCommand: (...args: string[]) => (redis as any).call(...args),
       prefix: `rl:${prefix}:`,
     });
   } catch {
-    // If Redis store creation fails, return undefined to use in-memory fallback
     return undefined;
   }
+}
+
+/**
+ * Uses socket.remoteAddress instead of req.ip to avoid ERR_ERL_KEY_GEN_IPV6.
+ * Strips the IPv6-mapped IPv4 prefix (::ffff:) so "::ffff:127.0.0.1" → "127.0.0.1".
+ */
+function getClientKey(req: Request): string {
+  const addr = req.socket?.remoteAddress ?? 'unknown';
+  return addr.replace(/^::ffff:/, '');
 }
 
 const rateLimitHandler = (_req: Request, res: Response) => {
@@ -39,16 +50,16 @@ const rateLimitHandler = (_req: Request, res: Response) => {
 
 /**
  * General API rate limiter: 100 requests per minute per IP.
- * Protects all endpoints from abuse and DDoS.
  */
 export const generalLimiter = rateLimit({
-  windowMs: 60 * 1000,   // 1 minute
+  windowMs: 60 * 1000,
   max: 100,
-  standardHeaders: true,   // Return RateLimit-* headers
+  standardHeaders: true,
   legacyHeaders: false,
   store: createRedisStore('general') as any,
   handler: rateLimitHandler,
-  skip: (req) => req.path === '/health', // Don't rate-limit health checks
+  keyGenerator: getClientKey,
+  skip: (req) => req.path === '/health',
 });
 
 /**
@@ -56,12 +67,13 @@ export const generalLimiter = rateLimit({
  * Prevents brute-force attacks on login/register endpoints.
  */
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   store: createRedisStore('auth') as any,
   handler: rateLimitHandler,
+  keyGenerator: getClientKey,
   message: 'Too many authentication attempts. Please try again in 15 minutes.',
 });
 
@@ -70,12 +82,11 @@ export const authLimiter = rateLimit({
  * PDF/Excel generation is CPU-intensive — limit concurrent export requests.
  */
 export const exportLimiter = rateLimit({
-  windowMs: 60 * 1000,  // 1 minute
+  windowMs: 60 * 1000,
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
   store: createRedisStore('export') as any,
   handler: rateLimitHandler,
-  // Key by authenticated user ID rather than IP
-  keyGenerator: (req: Request) => (req as any).user?.id || req.ip || 'anonymous',
+  keyGenerator: (req: Request) => (req as any).user?.id ?? getClientKey(req),
 });

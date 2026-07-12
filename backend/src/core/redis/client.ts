@@ -67,9 +67,11 @@ try {
   });
 
   // Initiate connection eagerly (despite lazyConnect, we want early failure detection)
-  redis.connect().catch((err) => {
-    logger.error('[Redis] Initial connection failed. App will retry automatically.', err.message);
-  });
+  if (process.env.NODE_ENV === 'production') {
+    redis.connect().catch((err) => {
+      logger.error('[Redis] Initial connection failed. App will retry automatically.', err.message);
+    });
+  }
 
 } catch (error) {
   logger.error('[Redis Initialization Error] Failed to create Redis instance:', error);

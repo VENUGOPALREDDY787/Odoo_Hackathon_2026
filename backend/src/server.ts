@@ -18,14 +18,18 @@ async function bootstrap() {
   // 1. Initialize Socket.IO
   socket.init(server);
 
-  // 2. Initialize BullMQ queues
+  // 2. Initialize BullMQ queues (always, so cron jobs can enqueue work)
   try {
     initQueues();
-    // 3. Start background workers
-    startNotificationWorker();
-    startExportWorker();
-    startReminderWorker();
-    logger.info('[Server] BullMQ workers started.');
+    if (process.env.NODE_ENV === 'production') {
+      // 3. Start background workers (only in production — need Redis)
+      startNotificationWorker();
+      startExportWorker();
+      startReminderWorker();
+      logger.info('[Server] BullMQ workers started.');
+    } else {
+      logger.info('[Server] Local development: BullMQ queues ready, workers bypassed (Redis offline).');
+    }
   } catch (err: any) {
     logger.error('[Server] BullMQ failed to initialize. Continuing without queue workers.', err.message);
   }
@@ -68,15 +72,17 @@ async function shutdown(signal: string) {
 process.once('SIGTERM', () => shutdown('SIGTERM'));
 process.once('SIGINT', () => shutdown('SIGINT'));
 
-// Unhandled rejections and exceptions — log and exit for process manager restart
+// Unhandled rejections and exceptions
 process.on('unhandledRejection', (reason: any) => {
-  logger.error('[Server] Unhandled Promise Rejection:', reason?.message || reason);
-  shutdown('UNHANDLED_REJECTION');
+  const msg = reason instanceof Error ? reason.stack : JSON.stringify(reason);
+  logger.error('[Server] Unhandled Promise Rejection:', msg);
+  if (process.env.NODE_ENV === 'production') shutdown('UNHANDLED_REJECTION');
 });
 
 process.on('uncaughtException', (err: Error) => {
-  logger.error('[Server] Uncaught Exception:', err.message, err.stack);
-  shutdown('UNCAUGHT_EXCEPTION');
+  const msg = err instanceof Error ? err.stack : JSON.stringify(err);
+  logger.error('[Server] Uncaught Exception:', msg);
+  if (process.env.NODE_ENV === 'production') shutdown('UNCAUGHT_EXCEPTION');
 });
 
 bootstrap();

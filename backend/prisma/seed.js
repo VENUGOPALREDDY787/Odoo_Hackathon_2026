@@ -4,6 +4,21 @@ const bcrypt = require('bcrypt');
 async function main() {
   console.log('Seeding database...');
 
+  // 0. Clean Existing Database Records
+  await prisma.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 0;');
+  await prisma.activityLog.deleteMany({});
+  await prisma.notification.deleteMany({});
+  await prisma.maintenanceRequest.deleteMany({});
+  await prisma.resourceBooking.deleteMany({});
+  await prisma.allocation.deleteMany({});
+  await prisma.asset.deleteMany({});
+  await prisma.assetCategory.deleteMany({});
+  await prisma.employee.deleteMany({});
+  await prisma.department.deleteMany({});
+  await prisma.organization.deleteMany({});
+  await prisma.$executeRawUnsafe('SET FOREIGN_KEY_CHECKS = 1;');
+  console.log('Cleaned existing database records.');
+
   // 1. Create Organization
   const org = await prisma.organization.upsert({
     where: { slug: 'acme-corp' },

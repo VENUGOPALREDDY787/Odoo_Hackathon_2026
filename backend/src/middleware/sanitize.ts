@@ -64,7 +64,11 @@ export function sanitize(req: Request, _res: Response, next: NextFunction): void
   }
 
   if (req.query && typeof req.query === 'object') {
-    req.query = sanitizeValue(req.query) as any;
+    const sanitizedQuery = sanitizeValue(req.query) as any;
+    for (const key in req.query) {
+      delete req.query[key];
+    }
+    Object.assign(req.query, sanitizedQuery);
   }
 
   next();

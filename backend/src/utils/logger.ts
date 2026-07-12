@@ -40,7 +40,7 @@ export async function logActivity({ organizationId, userId, action, entityType, 
         action,
         entityType,
         entityId,
-        details: details ? JSON.parse(JSON.stringify(details)) : null
+        newValue: details ? JSON.parse(JSON.stringify(details)) : undefined
       }
     });
   } catch (error) {

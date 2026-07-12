@@ -68,9 +68,11 @@ export class SocketManager {
     // When running multiple API server instances behind a load balancer,
     // the Redis pub/sub adapter ensures events are broadcast to all nodes.
     // Without this, emitToUser() would only work on the node that has the socket.
-    this.attachRedisAdapter().catch(err => {
-      logger.error('[SocketManager] Redis adapter failed to attach. Falling back to in-memory.', err.message);
-    });
+    if (process.env.NODE_ENV === 'production') {
+      this.attachRedisAdapter().catch(err => {
+        logger.error('[SocketManager] Redis adapter failed to attach. Falling back to in-memory.', err.message);
+      });
+    }
 
     // ─── Authentication Middleware ────────────────────────────────────────
     this.io.use((socket: any, next) => {
@@ -132,6 +134,10 @@ export class SocketManager {
     // Duplicate the ioredis connection for sub client
     const pubClient = redis;
     const subClient = redis.duplicate();
+
+    subClient.on('error', (err: Error) => {
+      logger.error('[SocketManager subClient] Redis connection error:', err.message);
+    });
 
     this.io.adapter(makeAdapter(pubClient as any, subClient as any));
     logger.info('[SocketManager] Redis adapter attached — ready for horizontal scaling.');
