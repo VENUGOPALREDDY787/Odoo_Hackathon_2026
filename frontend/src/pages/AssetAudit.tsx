@@ -1,128 +1,30 @@
-import React, { useState } from "react";
-import { NeoCard, NeoButton, NeoBadge, NeoInput } from "../components/ui/NeoBrutalist";
-import { ClipboardCheck, AlertOctagon } from "lucide-react";
+import { useState } from "react";
+import { AlertOctagon, ClipboardCheck, Lock, ScanLine } from "lucide-react";
 import { motion } from "framer-motion";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import apiClient from "../lib/api";
+import { NeoBadge, NeoButton, NeoCard, NeoInput, NeoSelect } from "../components/ui/NeoBrutalist";
+import { auditItems, departments, employees, statusColor } from "../lib/assetflow-data";
 
 export default function AssetAudit() {
-  const queryClient = useQueryClient();
-  const [scanInput, setScanInput] = useState("");
-
-  const { data: auditsData, isLoading } = useQuery({
-    queryKey: ['audits'],
-    queryFn: () => apiClient.get('/audit').then(res => res.data)
-  });
-  const audits = auditsData?.data?.audits || (Array.isArray(auditsData?.data) ? auditsData.data : []);
-  
-  const activeAudit = audits.find((a: any) => a.status === 'In Progress') || audits[0];
-  const pastAudits = audits.filter((a: any) => a.status === 'Completed' || a.status === 'Closed');
-  const discrepancies = activeAudit?.checklists?.filter((c: any) => c.verificationStatus !== 'Verified' && c.verificationStatus !== 'Not Verified') || [];
-
-  const verifyMutation = useMutation({
-    mutationFn: ({ auditId, assetId, status }: any) => apiClient.post(`/audit/${auditId}/verify/${assetId}`, { verificationStatus: status }),
-    onSuccess: () => {
-      setScanInput("");
-      queryClient.invalidateQueries({ queryKey: ['audits'] });
-    }
-  });
-
-  const handleVerify = () => {
-    if (!activeAudit || !scanInput) return;
-    // Assume scanInput is the asset ID
-    verifyMutation.mutate({ auditId: activeAudit.id, assetId: scanInput, status: 'Verified' });
-  };
-
+  const [scan, setScan] = useState("");
+  const [cycleLocked, setCycleLocked] = useState(false);
   return (
-    <div className="p-8 max-w-7xl mx-auto overflow-hidden">
-      <motion.div initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex justify-between items-end mb-12 border-b-8 border-black pb-8">
-        <div>
-          <h1 className="text-6xl font-black uppercase tracking-tighter">Audit.</h1>
-          <p className="font-bold text-neutral-600 uppercase mt-2 tracking-widest">Verify Asset Accuracy</p>
-        </div>
-        <NeoButton variant="purple"><ClipboardCheck className="mr-2" /> Start New Audit</NeoButton>
-      </motion.div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <motion.div initial={{ x: -30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.1 }}>
-            <NeoCard color="bg-white">
-              <h2 className="text-3xl font-black uppercase mb-6 flex items-center gap-2 border-b-4 border-black pb-4">
-                Active Audit: {activeAudit?.name || "None"}
-              </h2>
-              {activeAudit ? (
-                <>
-                  <div className="flex gap-4 mb-6 relative z-20">
-                    <NeoInput value={scanInput} onChange={e => setScanInput(e.target.value)} placeholder="Scan Asset Barcode / Enter ID" className="flex-1 bg-neutral-100" />
-                    <NeoButton onClick={handleVerify} disabled={verifyMutation.isPending} variant="black">
-                      {verifyMutation.isPending ? "..." : "Verify"}
-                    </NeoButton>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    {activeAudit.checklists?.map((item: any, i: number) => (
-                      <motion.div key={i} whileHover={{ scale: 1.02, x: 5 }} className={`p-4 border-4 border-black rounded-xl ${item.verificationStatus === 'Verified' ? 'bg-[#ccff00]' : 'bg-white'} flex justify-between items-center font-bold uppercase cursor-pointer`}>
-                        <span>{item.asset?.name || item.assetId}</span>
-                        {item.verificationStatus === 'Verified' ? (
-                          <span className="flex items-center gap-2"><CheckCircleIcon /> Verified</span>
-                        ) : (
-                          <span className="opacity-50">Pending</span>
-                        )}
-                      </motion.div>
-                    ))}
-                    {!activeAudit.checklists?.length && <div className="font-bold text-center opacity-50 uppercase py-4">No checklist items</div>}
-                  </div>
-                </>
-              ) : (
-                <div className="font-bold uppercase text-neutral-500 py-8 text-center">No active audit cycle.</div>
-              )}
-            </NeoCard>
-          </motion.div>
-        </div>
-
-        <div className="lg:col-span-1 space-y-8">
-          <motion.div initial={{ x: 30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
-            <NeoCard color="bg-red-400" className="group">
-               <h2 className="text-2xl font-black uppercase mb-4 flex items-center gap-2 group-hover:scale-105 transition-transform origin-left">
-                <AlertOctagon /> Discrepancies
-              </h2>
-              {discrepancies.length > 0 ? discrepancies.map((d: any, i: number) => (
-                <motion.div key={i} whileHover={{ y: -5 }} className="bg-white border-4 border-black p-4 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] font-bold uppercase text-sm mb-4 cursor-pointer">
-                  {d.asset?.name || d.assetId}: {d.notes || d.verificationStatus}
-                </motion.div>
-              )) : (
-                <div className="bg-white/50 border-4 border-black p-4 rounded-xl font-bold uppercase text-sm mb-4">No discrepancies found</div>
-              )}
-              {discrepancies.length > 0 && <NeoButton variant="black" className="w-full text-xs">Resolve Selected</NeoButton>}
-            </NeoCard>
-          </motion.div>
-
-          <motion.div initial={{ x: 30, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 }}>
-            <NeoCard>
-               <h2 className="text-2xl font-black uppercase mb-4">Past Audits</h2>
-               <div className="space-y-3">
-                 {pastAudits.length > 0 ? pastAudits.map((pa: any, i: number) => (
-                   <motion.div key={i} whileHover={{ paddingLeft: "10px", backgroundColor: "#f3f4f6" }} className="flex justify-between items-center font-bold uppercase text-sm border-b-2 border-black pb-2 cursor-pointer transition-all">
-                     <span>{pa.name}</span>
-                     <NeoBadge color="bg-[#ccff00]">100%</NeoBadge>
-                   </motion.div>
-                 )) : (
-                   <div className="text-sm font-bold uppercase text-neutral-500">No past audits</div>
-                 )}
-               </div>
-            </NeoCard>
-          </motion.div>
-        </div>
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex flex-col lg:flex-row justify-between gap-6 border-b-8 border-black pb-8">
+        <div><NeoBadge color="bg-purple-400 text-white">Structured verification</NeoBadge><h1 className="mt-3 text-5xl md:text-7xl font-black uppercase tracking-tighter">Audit.</h1><p className="font-bold text-neutral-600 uppercase mt-2 tracking-widest">Cycles, auditors, discrepancies, and locked closeout</p></div>
+        <NeoButton variant="purple" onClick={() => alert("New audit cycle created.")}><ClipboardCheck size={18} /> New Cycle</NeoButton>
       </div>
+      <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-8">
+        <NeoCard color="bg-[#ccff00]" interactive={false}>
+          <h2 className="text-3xl font-black uppercase mb-5">Cycle Setup</h2>
+          <div className="space-y-4"><NeoSelect className="w-full bg-white">{departments.map((dept) => <option key={dept.id}>{dept.name}</option>)}</NeoSelect><NeoSelect className="w-full bg-white">{employees.map((employee) => <option key={employee.email}>{employee.name}</option>)}</NeoSelect><div className="grid grid-cols-2 gap-3"><NeoInput type="date" className="bg-white" defaultValue="2026-07-12" /><NeoInput type="date" className="bg-white" defaultValue="2026-07-18" /></div><NeoButton variant="black" className="w-full" onClick={() => alert("Auditors assigned.")}>Assign Auditors</NeoButton></div>
+        </NeoCard>
+        <NeoCard className="p-0 overflow-hidden" interactive={false}>
+          <div className="p-5 bg-black text-white border-b-4 border-black"><div className="flex flex-col md:flex-row justify-between gap-4"><div><h2 className="text-2xl font-black uppercase">Active Audit: HQ July Cycle</h2><p className="font-bold text-white/70 text-sm">Scope: Engineering and Design / 4 assets flagged</p></div><NeoBadge color={cycleLocked ? "bg-red-400" : "bg-[#ccff00] text-black"}>{cycleLocked ? "Locked" : "Open"}</NeoBadge></div></div>
+          <div className="p-5 border-b-4 border-black bg-orange-400"><div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3"><NeoInput value={scan} onChange={(event) => setScan(event.target.value)} placeholder="Scan or type asset tag" className="bg-white" /><NeoButton variant="black" onClick={() => alert(scan ? `${scan} marked verified.` : "Enter an asset tag first.")}><ScanLine size={18} /> Verify</NeoButton></div></div>
+          <div className="divide-y-4 divide-black">{auditItems.map((item, index) => <motion.div key={item.tag} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }} className="p-5 bg-white grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4"><div><div className="flex flex-wrap items-center gap-2"><span className="font-black italic">{item.tag}</span><NeoBadge color={statusColor(item.state)}>{item.state}</NeoBadge></div><h3 className="text-xl font-black uppercase mt-2">{item.asset}</h3><p className="font-bold text-neutral-600">Expected: {item.expected} / Found: {item.found}</p></div><NeoButton variant={item.state === "Verified" ? "white" : "orange"} className="px-4 py-2 text-xs" onClick={() => alert(`${item.tag} discrepancy report opened.`)}><AlertOctagon size={16} /> Report</NeoButton></motion.div>)}</div>
+        </NeoCard>
+      </div>
+      <NeoCard color={cycleLocked ? "bg-red-400" : "bg-white"} interactive={false}><div className="flex flex-col md:flex-row justify-between gap-5 items-start md:items-center"><div><h2 className="text-3xl font-black uppercase">Close Audit Cycle</h2><p className="font-bold text-neutral-700">Closing locks the cycle and updates confirmed missing assets to Lost.</p></div><NeoButton variant="black" onClick={() => setCycleLocked(true)}><Lock size={18} /> Close Cycle</NeoButton></div></NeoCard>
     </div>
-  );
-}
-
-function CheckCircleIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
   );
 }

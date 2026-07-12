@@ -1,93 +1,26 @@
-import React from "react";
-import { NeoCard, NeoButton } from "../components/ui/NeoBrutalist";
-import { Download, BarChart2, PieChart } from "lucide-react";
+import { BarChart2, Download, Flame, PieChart, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
+import { NeoBadge, NeoButton, NeoCard, NeoSelect } from "../components/ui/NeoBrutalist";
+import { assets, departments, maintenanceRequests } from "../lib/assetflow-data";
 
 export default function Reports() {
+  const utilization = departments.filter((dept) => dept.status === "Active").map((dept) => ({ label: dept.name.slice(0, 3).toUpperCase(), value: Math.min(95, Math.round(dept.assets / 2.4)) }));
   return (
-    <div className="p-8 max-w-7xl mx-auto overflow-hidden">
-      <motion.div initial={{ y: -50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex justify-between items-end mb-12 border-b-8 border-black pb-8">
-        <div>
-          <h1 className="text-6xl font-black uppercase tracking-tighter">Analytics.</h1>
-          <p className="font-bold text-neutral-600 uppercase mt-2 tracking-widest">Asset Utilization & Health</p>
-        </div>
-        <NeoButton onClick={() => window.open('/api/reports/analytics?format=pdf', '_blank')} variant="black">
-          <Download className="mr-2" /> Export PDF
-        </NeoButton>
-      </motion.div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        <motion.div initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.1 }}>
-          <NeoCard color="bg-white">
-            <h2 className="text-2xl font-black uppercase mb-6 flex items-center gap-2">
-              <BarChart2 /> Utilization by Department
-            </h2>
-            {/* Mock Bar Chart */}
-            <div className="flex items-end gap-4 h-48 mt-8 border-l-4 border-b-4 border-black p-4">
-              {[
-                { label: "ENG", val: "80%", color: "bg-[#ccff00]" },
-                { label: "DES", val: "60%", color: "bg-purple-400" },
-                { label: "MKT", val: "40%", color: "bg-orange-400" },
-                { label: "HR", val: "20%", color: "bg-neutral-800" },
-              ].map((bar, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center justify-end h-full group cursor-pointer">
-                  <motion.div 
-                    initial={{ height: 0 }} 
-                    animate={{ height: bar.val }} 
-                    transition={{ duration: 1, delay: 0.2 + i * 0.1, type: "spring" }}
-                    className={`w-full ${bar.color} border-4 border-black rounded-t-lg transition-all group-hover:-translate-y-2 group-hover:brightness-110 relative`}
-                  >
-                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 font-black text-sm transition-opacity bg-black text-white px-2 py-1 rounded">
-                       {bar.val}
-                     </div>
-                  </motion.div>
-                  <span className="font-black uppercase text-xs mt-2">{bar.label}</span>
-                </div>
-              ))}
-            </div>
-          </NeoCard>
-        </motion.div>
-
-        <motion.div initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
-          <NeoCard color="bg-purple-100" className="group">
-             <h2 className="text-2xl font-black uppercase mb-6 flex items-center gap-2">
-              <PieChart /> Maintenance Frequency
-            </h2>
-            <div className="flex justify-center items-center h-48">
-               {/* Abstract brutalist pie chart visual */}
-               <motion.div 
-                 whileHover={{ scale: 1.1, rotate: 180 }}
-                 transition={{ duration: 0.8, type: "spring" }}
-                 className="w-32 h-32 rounded-full border-8 border-black bg-[conic-gradient(#ccff00_0%_40%,#fb923c_40%_75%,#121212_75%_100%)] shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
-               ></motion.div>
-            </div>
-            <div className="flex justify-center gap-4 mt-6">
-               <motion.div whileHover={{ scale: 1.1 }} className="flex items-center gap-2 font-bold text-xs uppercase cursor-pointer"><div className="w-3 h-3 bg-[#ccff00] border-2 border-black"></div> Laptops</motion.div>
-               <motion.div whileHover={{ scale: 1.1 }} className="flex items-center gap-2 font-bold text-xs uppercase cursor-pointer"><div className="w-3 h-3 bg-[#fb923c] border-2 border-black"></div> Furniture</motion.div>
-               <motion.div whileHover={{ scale: 1.1 }} className="flex items-center gap-2 font-bold text-xs uppercase cursor-pointer"><div className="w-3 h-3 bg-black border-2 border-black"></div> Other</motion.div>
-            </div>
-          </NeoCard>
-        </motion.div>
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex flex-col lg:flex-row justify-between gap-6 border-b-8 border-black pb-8">
+        <div><NeoBadge color="bg-black text-white">Manager analytics</NeoBadge><h1 className="mt-3 text-5xl md:text-7xl font-black uppercase tracking-tighter">Reports.</h1><p className="font-bold text-neutral-600 uppercase mt-2 tracking-widest">Utilization, maintenance, retirement, allocation, and heatmaps</p></div>
+        <div className="flex flex-col sm:flex-row gap-3"><NeoSelect className="bg-white"><option>PDF</option><option>CSV</option><option>XLSX</option></NeoSelect><NeoButton variant="black" onClick={() => alert("Analytics export generated.")}><Download size={18} /> Export</NeoButton></div>
       </div>
-
-      <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }}>
-        <NeoCard color="bg-orange-400">
-          <h2 className="text-2xl font-black uppercase mb-4">Location Heatmap</h2>
-          <div className="w-full h-48 bg-white border-4 border-black rounded-xl relative overflow-hidden grid grid-cols-12 grid-rows-4 gap-1 p-2">
-              {/* Mock heatmap grids */}
-              {Array.from({ length: 48 }).map((_, i) => (
-                <motion.div 
-                  initial={{ opacity: 0 }} 
-                  animate={{ opacity: 1 }} 
-                  transition={{ delay: 0.4 + i * 0.01 }}
-                  whileHover={{ scale: 1.2, zIndex: 10, boxShadow: "2px 2px 0px 0px rgba(0,0,0,1)" }}
-                  key={i} 
-                  className={`border-2 border-black rounded cursor-pointer ${Math.random() > 0.7 ? 'bg-red-400' : Math.random() > 0.4 ? 'bg-[#ccff00]' : 'bg-neutral-100'}`}
-                ></motion.div>
-              ))}
-          </div>
-        </NeoCard>
-      </motion.div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <NeoCard color="bg-[#ccff00]" interactive={false}><TrendingUp /><p className="mt-6 text-5xl font-black tracking-tighter">82%</p><h2 className="font-black uppercase mt-2">Average utilization</h2></NeoCard>
+        <NeoCard color="bg-orange-400" interactive={false}><Flame /><p className="mt-6 text-5xl font-black tracking-tighter">{maintenanceRequests.length}</p><h2 className="font-black uppercase mt-2">Open maintenance cases</h2></NeoCard>
+        <NeoCard color="bg-purple-400 text-white" interactive={false}><PieChart /><p className="mt-6 text-5xl font-black tracking-tighter">{assets.filter((asset) => asset.shared).length}</p><h2 className="font-black uppercase mt-2">Shared bookable assets</h2></NeoCard>
+      </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <NeoCard color="bg-white" interactive={false}><h2 className="text-2xl font-black uppercase mb-6 flex items-center gap-2"><BarChart2 /> Department Utilization</h2><div className="flex items-end gap-4 h-64 border-l-4 border-b-4 border-black p-4">{utilization.map((bar, index) => <div key={bar.label} className="flex-1 flex flex-col items-center justify-end h-full group"><motion.div initial={{ height: 0 }} animate={{ height: `${bar.value}%` }} transition={{ delay: index * 0.08, type: "spring" }} className="w-full bg-[#ccff00] border-4 border-black rounded-t-lg relative group-hover:bg-purple-400"><div className="absolute -top-8 left-1/2 -translate-x-1/2 font-black text-xs bg-black text-white px-2 py-1">{bar.value}%</div></motion.div><span className="font-black uppercase text-xs mt-2">{bar.label}</span></div>)}</div></NeoCard>
+        <NeoCard color="bg-purple-100" interactive={false}><h2 className="text-2xl font-black uppercase mb-6 flex items-center gap-2"><PieChart /> Maintenance Frequency</h2><div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-8 items-center"><motion.div whileHover={{ rotate: 180 }} className="w-40 h-40 rounded-full border-8 border-black bg-[conic-gradient(#ccff00_0%_38%,#fb923c_38%_70%,#a855f7_70%_88%,#121212_88%_100%)] shadow-[8px_8px_0_0_#000]" /><div className="space-y-3">{["Electronics - 38%", "Furniture - 32%", "Vehicles - 18%", "Rooms - 12%"].map((item) => <div key={item} className="border-4 border-black rounded-xl p-3 bg-white font-black uppercase shadow-[3px_3px_0_0_#000]">{item}</div>)}</div></div></NeoCard>
+      </div>
+      <NeoCard color="bg-orange-400" interactive={false}><h2 className="text-2xl font-black uppercase mb-4">Resource Booking Heatmap</h2><div className="grid grid-cols-12 grid-rows-4 gap-2 h-64 bg-white border-4 border-black rounded-xl p-3">{Array.from({ length: 48 }).map((_, index) => <motion.button type="button" key={index} whileHover={{ scale: 1.2, zIndex: 10 }} onClick={() => alert(`Usage window ${index + 1}: ${index % 3 === 0 ? "Peak" : "Normal"}.`)} className={`border-2 border-black rounded ${index % 7 === 0 ? "bg-red-400" : index % 3 === 0 ? "bg-[#ccff00]" : index % 4 === 0 ? "bg-purple-400" : "bg-neutral-100"}`} aria-label={`Booking heatmap cell ${index + 1}`} />)}</div></NeoCard>
     </div>
   );
 }

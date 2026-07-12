@@ -1,84 +1,46 @@
-import React from "react";
-import { NeoCard, NeoButton, NeoBadge } from "../components/ui/NeoBrutalist";
-import { Wrench, CheckCircle } from "lucide-react";
+import { useState } from "react";
+import { Camera, CheckCircle, UserCog, Wrench, XCircle } from "lucide-react";
 import { motion } from "framer-motion";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import apiClient from "../lib/api";
+import { NeoBadge, NeoButton, NeoCard, NeoInput, NeoSelect } from "../components/ui/NeoBrutalist";
+import { assets, maintenanceRequests, statusColor } from "../lib/assetflow-data";
+
+const nextStatus: Record<string, string> = { Pending: "Approved", Approved: "Technician Assigned", "Technician Assigned": "In Progress", "In Progress": "Resolved" };
 
 export default function Maintenance() {
-  const queryClient = useQueryClient();
-
-  const { data: mainData, isLoading } = useQuery({
-    queryKey: ['maintenance'],
-    queryFn: () => apiClient.get('/maintenance').then(res => res.data)
-  });
-  
-  const requests = mainData?.data?.requests || (Array.isArray(mainData?.data) ? mainData.data : []);
-
-  const approveMutation = useMutation({
-    mutationFn: (id: string) => apiClient.put(`/maintenance/${id}/approve`, {
-      assignedTechnician: "Internal Tech",
-      estimatedCompletionDate: new Date(Date.now() + 7*86400000).toISOString(),
-      estimatedCost: 0
-    }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['maintenance'] })
-  });
-
-  const rejectMutation = useMutation({
-    mutationFn: (id: string) => apiClient.put(`/maintenance/${id}/reject`, { reason: "Denied by admin" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['maintenance'] })
-  });
+  const [requests, setRequests] = useState(maintenanceRequests);
+  const [asset, setAsset] = useState("AF-0001");
+  const [issue, setIssue] = useState("");
+  const advance = (id: string) => setRequests((items) => items.map((item) => item.id === id ? { ...item, status: nextStatus[item.status] || item.status } : item));
 
   return (
-    <div className="p-8 max-w-7xl mx-auto overflow-hidden">
-      <motion.div initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex justify-between items-end mb-12 border-b-8 border-black pb-8">
-        <div>
-          <h1 className="text-6xl font-black uppercase tracking-tighter">Maintenance.</h1>
-          <p className="font-bold text-neutral-600 uppercase mt-2 tracking-widest">Repair Workflow & Approvals</p>
-        </div>
-        <NeoButton variant="orange"><Wrench className="mr-2" /> Report Issue</NeoButton>
-      </motion.div>
-
-      <div className="space-y-6">
-        {requests.length === 0 && !isLoading && (
-          <div className="p-12 text-center font-bold uppercase text-neutral-500">No maintenance requests found</div>
-        )}
-        {requests.map((req: any, i: number) => (
-          <motion.div 
-            key={req.id} 
-            initial={{ x: i % 2 === 0 ? -50 : 50, opacity: 0 }} 
-            animate={{ x: 0, opacity: 1 }} 
-            transition={{ delay: 0.1 + i * 0.1, type: "spring", stiffness: 100 }}
-          >
-            <NeoCard className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 group hover:-translate-y-2 transition-transform cursor-pointer" color={req.status === "Pending Approval" ? "bg-white" : req.status === "In Progress" ? "bg-orange-100" : "bg-neutral-100"}>
-              <div className="flex items-center gap-6">
-                <motion.div whileHover={{ rotate: 180 }} transition={{ duration: 0.3 }} className="w-16 h-16 bg-black text-white font-black flex items-center justify-center rounded-xl border-4 border-black group-hover:bg-[#ccff00] group-hover:text-black transition-colors">
-                  {req.id ? req.id.toString().slice(-3) : "REQ"}
-                </motion.div>
-                <div>
-                  <h3 className="text-2xl font-black uppercase">{req.asset?.name || "Unknown Asset"}</h3>
-                  <p className="font-bold text-neutral-600 uppercase text-sm mt-1">{req.issueDescription}</p>
-                  <div className="text-xs font-bold mt-2 opacity-50 uppercase">{new Date(req.createdAt || Date.now()).toLocaleDateString()}</div>
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex flex-col lg:flex-row justify-between gap-6 border-b-8 border-black pb-8">
+        <div><NeoBadge color="bg-red-400">Approval before repair</NeoBadge><h1 className="mt-3 text-5xl md:text-7xl font-black uppercase tracking-tighter">Maintenance.</h1><p className="font-bold text-neutral-600 uppercase mt-2 tracking-widest">Pending, approved, assigned, in progress, resolved</p></div>
+        <NeoButton variant="orange" onClick={() => alert(issue ? `Request raised for ${asset}.` : "Describe the issue first.")}><Wrench size={18} /> Raise Request</NeoButton>
+      </div>
+      <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-8">
+        <NeoCard color="bg-orange-400" interactive={false}>
+          <h2 className="text-3xl font-black uppercase mb-5">New Request</h2>
+          <div className="space-y-4">
+            <NeoSelect className="w-full bg-white" value={asset} onChange={(event) => setAsset(event.target.value)}>{assets.map((item) => <option key={item.tag} value={item.tag}>{item.tag} - {item.name}</option>)}</NeoSelect>
+            <NeoInput className="w-full bg-white" placeholder="Issue description" value={issue} onChange={(event) => setIssue(event.target.value)} />
+            <NeoSelect className="w-full bg-white"><option>Low</option><option>Medium</option><option>High</option><option>Critical</option></NeoSelect>
+            <button type="button" onClick={() => alert("Photo attachment picker opened.")} className="w-full border-4 border-black rounded-xl bg-white p-4 font-black uppercase flex items-center justify-center gap-2 shadow-[4px_4px_0_0_#000]"><Camera size={18} /> Attach Photo</button>
+          </div>
+        </NeoCard>
+        <NeoCard className="p-0 overflow-hidden" interactive={false}>
+          <div className="p-5 bg-black text-white border-b-4 border-black"><h2 className="text-2xl font-black uppercase">Repair Queue</h2></div>
+          <div className="divide-y-4 divide-black">
+            {requests.map((request, index) => (
+              <motion.div key={request.id} initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.05 }} className="p-5 bg-white">
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-5">
+                  <div><div className="flex flex-wrap gap-2 items-center"><span className="font-black italic">{request.id}</span><NeoBadge color={statusColor(request.status)}>{request.status}</NeoBadge><NeoBadge color="bg-black text-white">{request.priority}</NeoBadge></div><h3 className="text-2xl font-black uppercase mt-2">{request.asset}</h3><p className="font-bold text-neutral-600">{request.issue}</p><p className="font-black uppercase text-xs mt-2">Owner: {request.owner} / Technician: {request.technician} / Age: {request.age}</p></div>
+                  <div className="flex flex-col sm:flex-row lg:flex-col gap-2"><NeoButton variant="lime" className="px-4 py-2 text-xs" onClick={() => advance(request.id)} disabled={request.status === "Resolved"}><CheckCircle size={16} /> Advance</NeoButton><NeoButton variant="white" className="px-4 py-2 text-xs" onClick={() => alert(`Technician assigned to ${request.id}.`)}><UserCog size={16} /> Assign</NeoButton><NeoButton variant="black" className="px-4 py-2 text-xs" onClick={() => alert(`${request.id} rejected.`)}><XCircle size={16} /> Reject</NeoButton></div>
                 </div>
-              </div>
-              
-              <div className="flex flex-col items-end gap-4 z-10">
-                <NeoBadge color={
-                  req.status === "Pending Approval" ? "bg-red-400" :
-                  req.status === "In Progress" ? "bg-orange-400" : "bg-[#ccff00]"
-                }>
-                  {req.status}
-                </NeoBadge>
-                {req.status === "Pending Approval" && (
-                  <div className="flex gap-2">
-                    <NeoButton onClick={(e) => { e.stopPropagation(); rejectMutation.mutate(req.id); }} variant="white" className="py-2 px-4 text-xs" disabled={rejectMutation.isPending}>Deny</NeoButton>
-                    <NeoButton onClick={(e) => { e.stopPropagation(); approveMutation.mutate(req.id); }} variant="lime" className="py-2 px-4 text-xs" disabled={approveMutation.isPending}><CheckCircle size={16} className="mr-1" /> Approve</NeoButton>
-                  </div>
-                )}
-              </div>
-            </NeoCard>
-          </motion.div>
-        ))}
+              </motion.div>
+            ))}
+          </div>
+        </NeoCard>
       </div>
     </div>
   );

@@ -1,97 +1,99 @@
-import React, { useState } from "react";
-import { NeoCard, NeoButton, NeoBadge } from "../components/ui/NeoBrutalist";
-import { Calendar as CalendarIcon, Clock } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Calendar as CalendarIcon, Clock, RefreshCw, XCircle } from "lucide-react";
 import { motion } from "framer-motion";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import apiClient from "../lib/api";
+import { NeoBadge, NeoButton, NeoCard, NeoInput, NeoSelect } from "../components/ui/NeoBrutalist";
+import { bookings, statusColor } from "../lib/assetflow-data";
+
+const resources = ["Conference Room B2", "EV Pool Car", "Studio 1", "Conference Room A"];
+const timeSlots = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+
+function overlaps(start: string, end: string, busyStart: string, busyEnd: string) {
+  return start < busyEnd && end > busyStart;
+}
 
 export default function ResourceBooking() {
-  const queryClient = useQueryClient();
-  const timeSlots = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
-  
-  const { data: bookingData } = useQuery({
-    queryKey: ['bookings-today'],
-    queryFn: () => apiClient.get('/bookings/calendar/today').then(res => res.data)
-  });
-  
-  const { data: resourcesData } = useQuery({
-    queryKey: ['shared-assets'],
-    queryFn: () => apiClient.get('/assets?isShared=true').then(res => res.data)
-  });
-
-  const bookings = bookingData?.data?.bookings || (Array.isArray(bookingData?.data) ? bookingData.data : []);
-  const resources = resourcesData?.data?.assets || (Array.isArray(resourcesData?.data) ? resourcesData.data : [{id:"1", name: "Conference Room A"}, {id:"2", name: "Conference Room B"}, {id:"3", name: "Studio 1"}]);
-
-  const bookMutation = useMutation({
-    mutationFn: (data: any) => apiClient.post('/bookings', data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bookings-today'] }),
-    onError: (err: any) => alert(err.response?.data?.error?.message || "Booking failed")
-  });
-
-  const handleBook = (resourceId: string, time: string) => {
-    const today = new Date().toISOString().split('T')[0];
-    bookMutation.mutate({
-      assetId: resourceId,
-      startTime: `${today}T${time}:00.000Z`,
-      endTime: `${today}T${parseInt(time.split(':')[0]) + 1}:00:00.000Z`,
-      notes: "Quick meeting"
-    });
-  };
+  const [resource, setResource] = useState("Conference Room B2");
+  const [start, setStart] = useState("09:30");
+  const [end, setEnd] = useState("10:30");
+  const resourceBookings = useMemo(() => bookings.filter((booking) => booking.resource === resource), [resource]);
+  const conflict = resourceBookings.find((booking) => overlaps(start, end, booking.start, booking.end));
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <motion.div initial={{ y: -30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex justify-between items-end mb-8 border-b-8 border-black pb-8">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex flex-col lg:flex-row justify-between gap-6 border-b-8 border-black pb-8">
         <div>
-          <h1 className="text-6xl font-black uppercase tracking-tighter">Booking.</h1>
-          <p className="font-bold text-neutral-600 uppercase mt-2 tracking-widest">Reserve Shared Resources</p>
+          <NeoBadge color="bg-orange-400">Overlap validation</NeoBadge>
+          <h1 className="mt-3 text-5xl md:text-7xl font-black uppercase tracking-tighter">Booking.</h1>
+          <p className="font-bold text-neutral-600 uppercase mt-2 tracking-widest">Rooms, vehicles, and shared equipment by time slot</p>
         </div>
-        <NeoButton variant="lime"><CalendarIcon className="mr-2" /> Book Resource</NeoButton>
-      </motion.div>
+        <NeoButton variant="lime" onClick={() => alert(conflict ? `Rejected: overlaps ${conflict.start}-${conflict.end}.` : `${resource} booked from ${start} to ${end}.`)}><CalendarIcon size={18} /> Book Resource</NeoButton>
+      </div>
 
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-        <NeoCard className="p-0 overflow-hidden bg-white">
-          <div className="flex border-b-4 border-black">
-            <div className="w-48 p-4 border-r-4 border-black flex items-center justify-center font-black uppercase bg-neutral-100">
-              Resources
+      <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-8">
+        <NeoCard color="bg-[#ccff00]" interactive={false}>
+          <h2 className="text-3xl font-black uppercase mb-5">Booking Request</h2>
+          <div className="space-y-4">
+            <NeoSelect className="w-full bg-white" value={resource} onChange={(event) => setResource(event.target.value)}>
+              {resources.map((item) => <option key={item}>{item}</option>)}
+            </NeoSelect>
+            <div className="grid grid-cols-2 gap-3">
+              <NeoInput type="time" className="w-full bg-white" value={start} onChange={(event) => setStart(event.target.value)} />
+              <NeoInput type="time" className="w-full bg-white" value={end} onChange={(event) => setEnd(event.target.value)} />
             </div>
-            <div className="flex-1 flex overflow-x-auto">
-              {timeSlots.map((time) => (
-                <div key={time} className="min-w-[100px] flex-1 p-4 border-r-4 border-black text-center font-bold uppercase border-b-4 border-b-transparent">
-                  {time}
+            <div className={`border-4 border-black rounded-xl p-4 shadow-[4px_4px_0_0_#000] ${conflict ? "bg-red-400" : "bg-white"}`}>
+              <h3 className="font-black uppercase">{conflict ? "Conflict detected" : "Slot available"}</h3>
+              <p className="font-bold text-sm mt-1">{conflict ? `${conflict.resource} is already booked by ${conflict.owner} from ${conflict.start} to ${conflict.end}.` : "No overlapping booking found for this resource."}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <NeoButton variant="black" disabled={Boolean(conflict)} onClick={() => alert(`${resource} confirmed.`)}>Confirm</NeoButton>
+              <NeoButton variant="white" onClick={() => alert("Reminder set 15 minutes before start.")}><Clock size={18} /> Remind</NeoButton>
+            </div>
+          </div>
+        </NeoCard>
+
+        <NeoCard className="p-0 overflow-hidden" interactive={false}>
+          <div className="p-5 bg-black text-white border-b-4 border-black flex justify-between items-center">
+            <h2 className="text-2xl font-black uppercase">Daily Calendar</h2>
+            <NeoBadge color="bg-[#ccff00] text-black">{resource}</NeoBadge>
+          </div>
+          <div className="overflow-x-auto">
+            <div className="min-w-[900px]">
+              <div className="grid grid-cols-[180px_repeat(9,1fr)] border-b-4 border-black">
+                <div className="p-4 font-black uppercase bg-neutral-100 border-r-4 border-black">Resource</div>
+                {timeSlots.map((time) => <div key={time} className="p-4 font-black text-center border-r-4 border-black">{time}</div>)}
+              </div>
+              {resources.map((item, row) => (
+                <div key={item} className="grid grid-cols-[180px_repeat(9,1fr)] border-b-4 border-black last:border-b-0 min-h-24">
+                  <div className="p-4 font-black uppercase border-r-4 border-black flex items-center bg-white">{item}</div>
+                  {timeSlots.map((slot) => {
+                    const busy = bookings.find((booking) => booking.resource === item && booking.start <= slot && booking.end > slot);
+                    return (
+                      <motion.button type="button" key={`${item}-${slot}`} whileHover={{ scale: 1.04 }} onClick={() => { setResource(item); setStart(slot); setEnd(timeSlots[Math.min(timeSlots.indexOf(slot) + 1, timeSlots.length - 1)]); }} className={`border-r-4 border-black p-2 text-xs font-black uppercase ${busy ? statusColor(busy.status) : row % 2 ? "bg-neutral-100" : "bg-white"}`}>
+                        {busy ? busy.owner : "+"}
+                      </motion.button>
+                    );
+                  })}
                 </div>
               ))}
             </div>
           </div>
-
-          {resources.map((resource: any, i: number) => (
-            <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 + i * 0.1 }} key={i} className="flex border-b-4 border-black last:border-b-0 group">
-              <div className="w-48 p-4 border-r-4 border-black font-black uppercase text-sm flex items-center group-hover:bg-[#ccff00] transition-colors overflow-hidden">
-                {resource.name}
-              </div>
-              <div className="flex-1 flex relative">
-                {timeSlots.map((time) => {
-                  // Basic mock check if booked based on returned bookings array
-                  const isBooked = bookings.some((b: any) => b.assetId === resource.id && new Date(b.startTime).getUTCHours() === parseInt(time.split(':')[0]));
-                  return (
-                    <motion.div onClick={() => !isBooked && handleBook(resource.id, time)} whileHover={{ backgroundColor: isBooked ? "" : "#f3f4f6" }} key={time} className={`min-w-[100px] flex-1 border-r-4 border-black h-20 transition-colors ${isBooked ? '' : 'cursor-pointer'} flex justify-center items-center relative`}>
-                       {isBooked ? null : <PlusIcon className="opacity-0 hover:opacity-100 transition-opacity" />}
-                    </motion.div>
-                  );
-                })}
-                {/* Mock Booking Block rendering over the grid would be complex dynamically without a real calendar component. Rendering simplified version. */}
-              </div>
-            </motion.div>
-          ))}
         </NeoCard>
-      </motion.div>
-    </div>
-  );
-}
+      </div>
 
-function PlusIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 5v14M5 12h14" />
-    </svg>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {bookings.map((booking) => (
+          <NeoCard key={`${booking.resource}-${booking.start}`} color="bg-white" className="p-5" interactive>
+            <div className="flex justify-between gap-4">
+              <div><h3 className="font-black uppercase text-xl">{booking.resource}</h3><p className="font-bold text-neutral-600">{booking.owner} / {booking.start} - {booking.end}</p></div>
+              <NeoBadge color={statusColor(booking.status)}>{booking.status}</NeoBadge>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <NeoButton variant="white" className="px-4 py-2 text-xs" onClick={() => alert("Reschedule flow opened.")}><RefreshCw size={16} /> Reschedule</NeoButton>
+              <NeoButton variant="black" className="px-4 py-2 text-xs" onClick={() => alert("Booking cancelled.")}><XCircle size={16} /> Cancel</NeoButton>
+            </div>
+          </NeoCard>
+        ))}
+      </div>
+    </div>
   );
 }

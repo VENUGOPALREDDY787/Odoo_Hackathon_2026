@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { Sidebar, CustomCursor, PageTransition } from "./components/ui/NeoBrutalist";
 import { useAuthStore } from "./store/auth";
+import { Menu } from "lucide-react";
 
 // Pages
 import Login from "./pages/Login";
@@ -29,6 +30,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const token = useAuthStore(state => state.token);
   const isLogin = location.pathname === "/login";
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     // Disabled authentication check for now
@@ -44,8 +46,18 @@ function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[#f3f4f6]">
       <CustomCursor />
-      {!isLogin && <Sidebar />}
-      <main className={`${!isLogin ? "ml-64" : ""} min-h-screen`}>
+      {!isLogin && (
+        <>
+          <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[#ccff00] border-b-4 border-black z-30 flex items-center px-4 justify-between">
+            <span className="font-black text-xl tracking-tighter">AssetFlow</span>
+            <button type="button" aria-label="Open navigation menu" onClick={() => setIsMobileMenuOpen(true)} className="p-2 border-2 border-black rounded-lg bg-white">
+              <Menu size={24} />
+            </button>
+          </div>
+          <Sidebar isOpen={isMobileMenuOpen} setIsOpen={setIsMobileMenuOpen} />
+        </>
+      )}
+      <main className={`${!isLogin ? "md:ml-64 pt-16 md:pt-0" : ""} min-h-screen`}>
         {children}
       </main>
     </div>
