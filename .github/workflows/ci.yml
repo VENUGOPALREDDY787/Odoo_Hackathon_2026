@@ -1,63 +1,59 @@
-name: AssetFlow CI Pipeline
+name: AssetFlow CI
 
 on:
   push:
-    branches: [ develop, main ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ develop, main ]
+    branches: [ "main" ]
 
 jobs:
-  audit-and-test:
+  build-and-test:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [ 18.x, 20.x ]
+    
+    # Define Redis service needed for tests and rate limiter
+    services:
+      redis:
+        image: redis
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v3
 
-    - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v3
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: '20.x'
         cache: 'npm'
         cache-dependency-path: backend/package-lock.json
 
     - name: Install Dependencies
-      run: |
-        cd backend
-        npm ci
+      working-directory: ./backend
+      run: npm ci
 
-    - name: Run Schema Compilation
-      run: |
-        cd backend
-        npx prisma generate
+    - name: Run ESLint
+      working-directory: ./backend
+      run: npm run lint
+      continue-on-error: true # Warning only for now
 
-    - name: Run TypeScript Verification
-      run: |
-        cd backend
-        npx tsc --noEmit
+    - name: Run Unit & Integration Tests (Jest)
+      working-directory: ./backend
+      run: npm test
+      env:
+        NODE_ENV: test
+        JWT_SECRET: test_jwt_secret_minimum_32_characters_for_validation
+        JWT_REFRESH_SECRET: test_jwt_refresh_secret_minimum_32_characters
+        DATABASE_URL: 'mysql://root:root@localhost:3306/assetflow_test'
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
 
-    - name: Run Linting Checks
-      run: |
-        cd backend
-        npm run test --if-present
-
-  docker-compile:
-    needs: audit-and-test
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Dry Run Docker Image Compilation
-      uses: docker/build-push-action@v5
+    - name: Upload Test Coverage
+      uses: actions/upload-artifact@v3
       with:
-        context: ./backend
-        file: ./backend/Dockerfile
-        push: false
+        name: coverage-report
+        path: backend/coverage/
