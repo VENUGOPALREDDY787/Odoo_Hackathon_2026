@@ -17,7 +17,7 @@ export default function AssetRegistry() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['assets'] })
   });
 
-  const assets = data?.data || [];
+  const assets = data?.data?.assets || (Array.isArray(data?.data) ? data.data : []);
 
   const container = {
     hidden: { opacity: 0 },

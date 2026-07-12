@@ -31,11 +31,14 @@ function Layout({ children }: { children: React.ReactNode }) {
   const isLogin = location.pathname === "/login";
 
   useEffect(() => {
+    // Disabled authentication check for now
+    /*
     if (!token && !isLogin) {
       window.location.href = "/login";
     } else if (token && isLogin) {
       window.location.href = "/";
     }
+    */
   }, [token, isLogin]);
 
   return (

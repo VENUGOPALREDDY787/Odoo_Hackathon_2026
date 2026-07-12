@@ -2,13 +2,32 @@ import React from "react";
 import { NeoCard, NeoButton, NeoBadge } from "../components/ui/NeoBrutalist";
 import { Wrench, CheckCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import apiClient from "../lib/api";
 
 export default function Maintenance() {
-  const requests = [
-    { id: "REQ-01", asset: "MacBook Pro M2", issue: "Battery Replacement", status: "Pending Approval", date: "Oct 12, 2025" },
-    { id: "REQ-02", asset: "Sony A7IV", issue: "Sensor Cleaning", status: "In Progress", date: "Oct 10, 2025" },
-    { id: "REQ-03", asset: "Herman Miller Chair", issue: "Armrest Broken", status: "Completed", date: "Oct 05, 2025" },
-  ];
+  const queryClient = useQueryClient();
+
+  const { data: mainData, isLoading } = useQuery({
+    queryKey: ['maintenance'],
+    queryFn: () => apiClient.get('/maintenance').then(res => res.data)
+  });
+  
+  const requests = mainData?.data?.requests || (Array.isArray(mainData?.data) ? mainData.data : []);
+
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => apiClient.put(`/maintenance/${id}/approve`, {
+      assignedTechnician: "Internal Tech",
+      estimatedCompletionDate: new Date(Date.now() + 7*86400000).toISOString(),
+      estimatedCost: 0
+    }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['maintenance'] })
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (id: string) => apiClient.put(`/maintenance/${id}/reject`, { reason: "Denied by admin" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['maintenance'] })
+  });
 
   return (
     <div className="p-8 max-w-7xl mx-auto overflow-hidden">
@@ -21,22 +40,25 @@ export default function Maintenance() {
       </motion.div>
 
       <div className="space-y-6">
-        {requests.map((req, i) => (
+        {requests.length === 0 && !isLoading && (
+          <div className="p-12 text-center font-bold uppercase text-neutral-500">No maintenance requests found</div>
+        )}
+        {requests.map((req: any, i: number) => (
           <motion.div 
-            key={i} 
+            key={req.id} 
             initial={{ x: i % 2 === 0 ? -50 : 50, opacity: 0 }} 
             animate={{ x: 0, opacity: 1 }} 
-            transition={{ delay: 0.2 + i * 0.1, type: "spring", stiffness: 100 }}
+            transition={{ delay: 0.1 + i * 0.1, type: "spring", stiffness: 100 }}
           >
             <NeoCard className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 group hover:-translate-y-2 transition-transform cursor-pointer" color={req.status === "Pending Approval" ? "bg-white" : req.status === "In Progress" ? "bg-orange-100" : "bg-neutral-100"}>
               <div className="flex items-center gap-6">
                 <motion.div whileHover={{ rotate: 180 }} transition={{ duration: 0.3 }} className="w-16 h-16 bg-black text-white font-black flex items-center justify-center rounded-xl border-4 border-black group-hover:bg-[#ccff00] group-hover:text-black transition-colors">
-                  {req.id.split("-")[1]}
+                  {req.id ? req.id.toString().slice(-3) : "REQ"}
                 </motion.div>
                 <div>
-                  <h3 className="text-2xl font-black uppercase">{req.asset}</h3>
-                  <p className="font-bold text-neutral-600 uppercase text-sm mt-1">{req.issue}</p>
-                  <div className="text-xs font-bold mt-2 opacity-50 uppercase">{req.date}</div>
+                  <h3 className="text-2xl font-black uppercase">{req.asset?.name || "Unknown Asset"}</h3>
+                  <p className="font-bold text-neutral-600 uppercase text-sm mt-1">{req.issueDescription}</p>
+                  <div className="text-xs font-bold mt-2 opacity-50 uppercase">{new Date(req.createdAt || Date.now()).toLocaleDateString()}</div>
                 </div>
               </div>
               
@@ -49,8 +71,8 @@ export default function Maintenance() {
                 </NeoBadge>
                 {req.status === "Pending Approval" && (
                   <div className="flex gap-2">
-                    <NeoButton variant="white" className="py-2 px-4 text-xs">Deny</NeoButton>
-                    <NeoButton variant="lime" className="py-2 px-4 text-xs"><CheckCircle size={16} className="mr-1" /> Approve</NeoButton>
+                    <NeoButton onClick={(e) => { e.stopPropagation(); rejectMutation.mutate(req.id); }} variant="white" className="py-2 px-4 text-xs" disabled={rejectMutation.isPending}>Deny</NeoButton>
+                    <NeoButton onClick={(e) => { e.stopPropagation(); approveMutation.mutate(req.id); }} variant="lime" className="py-2 px-4 text-xs" disabled={approveMutation.isPending}><CheckCircle size={16} className="mr-1" /> Approve</NeoButton>
                   </div>
                 )}
               </div>

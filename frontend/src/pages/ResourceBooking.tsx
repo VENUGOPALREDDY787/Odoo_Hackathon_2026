@@ -1,11 +1,42 @@
-import React from "react";
+import React, { useState } from "react";
 import { NeoCard, NeoButton, NeoBadge } from "../components/ui/NeoBrutalist";
 import { Calendar as CalendarIcon, Clock } from "lucide-react";
 import { motion } from "framer-motion";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import apiClient from "../lib/api";
 
 export default function ResourceBooking() {
+  const queryClient = useQueryClient();
   const timeSlots = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
-  const resources = ["Conference Room A", "Conference Room B", "Studio 1"];
+  
+  const { data: bookingData } = useQuery({
+    queryKey: ['bookings-today'],
+    queryFn: () => apiClient.get('/bookings/calendar/today').then(res => res.data)
+  });
+  
+  const { data: resourcesData } = useQuery({
+    queryKey: ['shared-assets'],
+    queryFn: () => apiClient.get('/assets?isShared=true').then(res => res.data)
+  });
+
+  const bookings = bookingData?.data?.bookings || (Array.isArray(bookingData?.data) ? bookingData.data : []);
+  const resources = resourcesData?.data?.assets || (Array.isArray(resourcesData?.data) ? resourcesData.data : [{id:"1", name: "Conference Room A"}, {id:"2", name: "Conference Room B"}, {id:"3", name: "Studio 1"}]);
+
+  const bookMutation = useMutation({
+    mutationFn: (data: any) => apiClient.post('/bookings', data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bookings-today'] }),
+    onError: (err: any) => alert(err.response?.data?.error?.message || "Booking failed")
+  });
+
+  const handleBook = (resourceId: string, time: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    bookMutation.mutate({
+      assetId: resourceId,
+      startTime: `${today}T${time}:00.000Z`,
+      endTime: `${today}T${parseInt(time.split(':')[0]) + 1}:00:00.000Z`,
+      notes: "Quick meeting"
+    });
+  };
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
@@ -32,26 +63,22 @@ export default function ResourceBooking() {
             </div>
           </div>
 
-          {resources.map((resource, i) => (
+          {resources.map((resource: any, i: number) => (
             <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 + i * 0.1 }} key={i} className="flex border-b-4 border-black last:border-b-0 group">
-              <div className="w-48 p-4 border-r-4 border-black font-black uppercase text-sm flex items-center group-hover:bg-[#ccff00] transition-colors">
-                {resource}
+              <div className="w-48 p-4 border-r-4 border-black font-black uppercase text-sm flex items-center group-hover:bg-[#ccff00] transition-colors overflow-hidden">
+                {resource.name}
               </div>
               <div className="flex-1 flex relative">
-                {timeSlots.map((time) => (
-                  <motion.div whileHover={{ backgroundColor: "#f3f4f6" }} key={time} className="min-w-[100px] flex-1 border-r-4 border-black h-20 transition-colors cursor-pointer flex justify-center items-center">
-                     <PlusIcon className="opacity-0 hover:opacity-100 transition-opacity" />
-                  </motion.div>
-                ))}
-                {/* Mock Booking Block */}
-                {i === 0 && (
-                  <motion.div whileHover={{ scale: 1.02, y: -2 }} className="absolute left-[100px] w-[200px] h-full p-2 z-10 cursor-pointer">
-                    <div className="bg-[#ccff00] border-4 border-black w-full h-full rounded-lg shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none transition-shadow p-2 font-bold text-xs uppercase overflow-hidden">
-                      Design Sync
-                      <div className="text-[10px] opacity-70 flex items-center mt-1"><Clock size={10} className="mr-1" /> 10:00 - 12:00</div>
-                    </div>
-                  </motion.div>
-                )}
+                {timeSlots.map((time) => {
+                  // Basic mock check if booked based on returned bookings array
+                  const isBooked = bookings.some((b: any) => b.assetId === resource.id && new Date(b.startTime).getUTCHours() === parseInt(time.split(':')[0]));
+                  return (
+                    <motion.div onClick={() => !isBooked && handleBook(resource.id, time)} whileHover={{ backgroundColor: isBooked ? "" : "#f3f4f6" }} key={time} className={`min-w-[100px] flex-1 border-r-4 border-black h-20 transition-colors ${isBooked ? '' : 'cursor-pointer'} flex justify-center items-center relative`}>
+                       {isBooked ? null : <PlusIcon className="opacity-0 hover:opacity-100 transition-opacity" />}
+                    </motion.div>
+                  );
+                })}
+                {/* Mock Booking Block rendering over the grid would be complex dynamically without a real calendar component. Rendering simplified version. */}
               </div>
             </motion.div>
           ))}

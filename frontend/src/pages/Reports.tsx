@@ -11,7 +11,9 @@ export default function Reports() {
           <h1 className="text-6xl font-black uppercase tracking-tighter">Analytics.</h1>
           <p className="font-bold text-neutral-600 uppercase mt-2 tracking-widest">Asset Utilization & Health</p>
         </div>
-        <NeoButton variant="black"><Download className="mr-2" /> Export PDF</NeoButton>
+        <NeoButton onClick={() => window.open('/api/reports/analytics?format=pdf', '_blank')} variant="black">
+          <Download className="mr-2" /> Export PDF
+        </NeoButton>
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">

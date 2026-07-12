@@ -80,7 +80,7 @@ export default function Login() {
             try {
               if (isLogin) {
                 const res = await apiClient.post("/auth/login", { email, password });
-                loginAction(res.data.user, res.data.token);
+                loginAction(res.data.data.user, res.data.data.accessToken);
                 navigate("/");
               } else {
                 await apiClient.post("/auth/signup", { name, email, password });
@@ -88,7 +88,7 @@ export default function Login() {
                 setError("Account created. Please log in.");
               }
             } catch (err: any) {
-              setError(err.response?.data?.message || "Authentication failed");
+              setError(err.response?.data?.error?.message || err.response?.data?.message || "Authentication failed");
             } finally {
               setLoading(false);
             }

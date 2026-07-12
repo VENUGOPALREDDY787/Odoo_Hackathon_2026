@@ -2,13 +2,28 @@ import React from "react";
 import { NeoCard, NeoButton, NeoBadge } from "../components/ui/NeoBrutalist";
 import { ArrowUpRight, Box, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import apiClient from "../lib/api";
 
 export default function Dashboard() {
+  const { data: kpiData } = useQuery({
+    queryKey: ['dashboard-kpis'],
+    queryFn: () => apiClient.get('/dashboard/kpis').then(res => res.data)
+  });
+
+  const { data: overdueData } = useQuery({
+    queryKey: ['overdue-allocations'],
+    queryFn: () => apiClient.get('/allocations?status=Overdue').then(res => res.data)
+  });
+
+  const rawKpis = kpiData?.data || {};
+  const overdueList = overdueData?.data?.allocations || (Array.isArray(overdueData?.data) ? overdueData.data : []);
+
   const kpis = [
-    { title: "Total Assets", value: "1,248", color: "bg-[#ccff00]", icon: <Box size={24} /> },
-    { title: "Allocated", value: "942", color: "bg-purple-400", icon: <CheckCircle2 size={24} /> },
-    { title: "Under Repair", value: "12", color: "bg-orange-400", icon: <AlertTriangle size={24} /> },
-    { title: "Overdue", value: "5", color: "bg-red-400", icon: <Clock size={24} /> },
+    { title: "Total Assets", value: rawKpis.totalAssets || "0", color: "bg-[#ccff00]", icon: <Box size={24} /> },
+    { title: "Allocated", value: rawKpis.allocated || "0", color: "bg-purple-400", icon: <CheckCircle2 size={24} /> },
+    { title: "Under Repair", value: rawKpis.underRepair || "0", color: "bg-orange-400", icon: <AlertTriangle size={24} /> },
+    { title: "Overdue", value: rawKpis.overdue || "0", color: "bg-red-400", icon: <Clock size={24} /> },
   ];
 
   return (
@@ -45,18 +60,20 @@ export default function Dashboard() {
           <NeoCard className="h-full">
             <div className="flex justify-between items-center mb-6 border-b-4 border-black pb-4">
               <h2 className="text-3xl font-black uppercase">Overdue Returns</h2>
-              <NeoBadge color="bg-red-400">5 Items</NeoBadge>
+              <NeoBadge color="bg-red-400">{overdueList.length} Items</NeoBadge>
             </div>
             <div className="space-y-4">
-              {[1, 2, 3].map((_, i) => (
+              {overdueList.length === 0 ? (
+                <div className="p-4 font-bold text-neutral-500 text-center uppercase">No overdue items</div>
+              ) : overdueList.slice(0, 5).map((item: any, i: number) => (
                 <motion.div whileHover={{ scale: 1.02, x: 4 }} key={i} className="flex justify-between items-center p-4 border-4 border-black rounded-xl cursor-pointer bg-white z-10 relative shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-y-1 hover:translate-x-1 transition-all">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-[#ccff00] border-2 border-black rounded-lg flex items-center justify-center font-bold rotate-[-5deg]">
-                      M2
+                      {item.asset?.name?.substring(0, 2).toUpperCase() || "A"}
                     </div>
                     <div>
-                      <h3 className="font-bold uppercase">MacBook Pro M2</h3>
-                      <p className="text-sm font-medium text-red-500">3 days overdue by Jake P.</p>
+                      <h3 className="font-bold uppercase">{item.asset?.name || "Unknown Asset"}</h3>
+                      <p className="text-sm font-medium text-red-500">Overdue by {item.employee?.name || item.department?.name || "Unknown"}</p>
                     </div>
                   </div>
                   <NeoButton variant="black" className="px-4 py-2 text-sm z-20">Remind</NeoButton>

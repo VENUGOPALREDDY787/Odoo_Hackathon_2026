@@ -70,7 +70,7 @@ function DepartmentsTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['departments'] })
   });
 
-  const departments = data?.data || [];
+  const departments = data?.data?.departments || (Array.isArray(data?.data) ? data.data : []);
 
   if (isLoading) return <div className="p-8 text-center font-bold">Loading...</div>;
 
@@ -130,7 +130,7 @@ function CategoriesTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] })
   });
 
-  const categories = data?.data || [];
+  const categories = data?.data?.categories || (Array.isArray(data?.data) ? data.data : []);
 
   if (isLoading) return <div className="p-8 text-center font-bold">Loading...</div>;
 
@@ -186,7 +186,7 @@ function EmployeesTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employees'] })
   });
 
-  const employees = data?.data || [];
+  const employees = data?.data?.employees || (Array.isArray(data?.data) ? data.data : []);
 
   if (isLoading) return <div className="p-8 text-center font-bold">Loading...</div>;
 
