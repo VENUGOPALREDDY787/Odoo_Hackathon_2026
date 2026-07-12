@@ -26,6 +26,8 @@ model Organization {
   audits          AuditCycle[]
   notifications   Notification[]
   activityLogs    ActivityLog[]
+  notificationPreferences NotificationPreference[]
+  notificationTemplates   NotificationTemplate[]
 
   @@map("organizations")
 }
@@ -52,6 +54,7 @@ model Department {
   transfersTo    Transfer[]       @relation("TransferToDept")
   bookings       ResourceBooking[]
   auditCycles    AuditCycle[]     @relation("scopeDepartmentId")
+  activityLogs   ActivityLog[]
 
   @@map("departments")
 }
@@ -88,6 +91,7 @@ model Employee {
   verifiedItems  AuditItem[]      @relation("AuditItemAuditor")
   notifications  Notification[]
   activityLogs   ActivityLog[]
+  notificationPreferences NotificationPreference[]
 
   @@map("employees")
 }
@@ -104,6 +108,7 @@ model AssetCategory {
 
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   assets         Asset[]
+  auditScopes    AuditCycle[]     @relation("auditScopeCategory")
 
   @@map("asset_categories")
 }
@@ -136,6 +141,7 @@ model Asset {
   bookings        ResourceBooking[]
   maintenance     MaintenanceRequest[]
   auditItems      AuditItem[]
+  auditDiscrepancies AuditDiscrepancy[]
 
   @@map("assets")
 }
@@ -209,6 +215,7 @@ model ResourceBooking {
   endTime                 DateTime         @map("end_time")
   status                  String           @default("Upcoming") // 'Upcoming', 'Ongoing', 'Completed', 'Cancelled'
   notes                   String?          @db.Text
+  reminderSent            Boolean          @default(false) @map("reminder_sent")
   createdAt               DateTime         @default(now()) @map("created_at")
   updatedAt               DateTime         @updatedAt @map("updated_at")
   createdBy               String?          @map("created_by")
@@ -223,85 +230,152 @@ model ResourceBooking {
 }
 
 model MaintenanceRequest {
-  id                 String           @id @default(uuid())
-  organizationId     String           @map("organization_id")
-  assetId            String           @map("asset_id")
-  raisedBy           String           @map("raised_by")
-  approvedBy         String?          @map("approved_by")
-  issueDescription   String           @db.Text @map("issue_description")
-  priority           String           @default("Medium") // 'Low', 'Medium', 'High', 'Critical'
-  photoUrl           String?          @map("photo_url")
-  status             String           @default("Pending") // 'Pending', 'Approved', 'Rejected', 'Technician Assigned', 'In Progress', 'Resolved'
-  assignedTechnician String?          @map("assigned_technician")
-  approvedAt         DateTime?        @map("approved_at")
-  resolvedAt         DateTime?        @map("resolved_at")
-  resolutionNotes    String?          @db.Text @map("resolution_notes")
-  createdAt          DateTime         @default(now()) @map("created_at")
-  updatedAt          DateTime         @updatedAt @map("updated_at")
-  createdBy          String?          @map("created_by")
-  updatedBy          String?          @map("updated_by")
+  id                      String           @id @default(uuid())
+  organizationId          String           @map("organization_id")
+  assetId                 String           @map("asset_id")
+  raisedBy                String           @map("raised_by")
+  approvedBy              String?          @map("approved_by")
+  issueDescription        String           @db.Text @map("issue_description")
+  priority                String           @default("Medium") // 'Low', 'Medium', 'High', 'Critical'
+  photoUrl                String?          @map("photo_url")
+  status                  String           @default("Pending")  // 'Pending','Approved','Rejected','Technician Assigned','In Progress','Resolved','Closed','Cancelled'
+  assignedTechnician      String?          @map("assigned_technician")
+  estimatedCompletionDate DateTime?        @map("estimated_completion_date")
+  estimatedCost           Decimal?         @db.Decimal(15,2) @map("estimated_cost")
+  actualCost              Decimal?         @db.Decimal(15,2) @map("actual_cost")
+  vendor                  String?          @db.VarChar(255)
+  approvedAt              DateTime?        @map("approved_at")
+  startedAt               DateTime?        @map("started_at")
+  resolvedAt              DateTime?        @map("resolved_at")
+  closedAt                DateTime?        @map("closed_at")
+  resolutionNotes         String?          @db.Text @map("resolution_notes")
+  rejectionReason         String?          @db.Text @map("rejection_reason")
+  cancelReason            String?          @db.Text @map("cancel_reason")
+  createdAt               DateTime         @default(now()) @map("created_at")
+  updatedAt               DateTime         @updatedAt @map("updated_at")
+  createdBy               String?          @map("created_by")
+  updatedBy               String?          @map("updated_by")
 
-  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  asset              Asset            @relation(fields: [assetId], references: [id], onDelete: Restrict)
-  raiser             Employee         @relation("MaintenanceRaisedBy", fields: [raisedBy], references: [id], onDelete: Restrict)
-  approver           Employee?        @relation("MaintenanceApprovedBy", fields: [approvedBy], references: [id], onDelete: SetNull)
+  organization            Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  asset                   Asset            @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  raiser                  Employee         @relation("MaintenanceRaisedBy", fields: [raisedBy], references: [id], onDelete: Restrict)
+  approver                Employee?        @relation("MaintenanceApprovedBy", fields: [approvedBy], references: [id], onDelete: SetNull)
 
+  @@index([organizationId, status])
+  @@index([organizationId, assetId])
+  @@index([organizationId, priority])
   @@map("maintenance_requests")
 }
 
 model AuditCycle {
-  id                 String           @id @default(uuid())
-  organizationId     String           @map("organization_id")
-  name               String
-  scopeType          String           @map("scope_type") // 'Department', 'Location', 'All'
-  scopeDepartmentId  String?          @map("scope_department_id")
-  scopeLocation      String?          @map("scope_location")
-  startDate          DateTime         @map("start_date")
-  endDate            DateTime         @map("end_date")
-  status             String           @default("Draft") // 'Draft', 'Active', 'Completed', 'Closed'
-  createdAt          DateTime         @default(now()) @map("created_at")
-  updatedAt          DateTime         @updatedAt @map("updated_at")
-  createdBy          String?          @map("created_by")
-  updatedBy          String?          @map("updated_by")
-  deletedAt          DateTime?        @map("deleted_at")
+  id                  String           @id @default(uuid())
+  organizationId      String           @map("organization_id")
+  name                String
+  description         String?          @db.Text
+  scopeType           String           @map("scope_type") // 'All', 'Department', 'Location', 'Category'
+  scopeDepartmentId   String?          @map("scope_department_id")
+  scopeLocation       String?          @map("scope_location")
+  scopeCategoryId     String?          @map("scope_category_id")
+  scheduledStartDate  DateTime?        @map("scheduled_start_date")
+  scheduledEndDate    DateTime?        @map("scheduled_end_date")
+  startDate           DateTime?        @map("start_date")
+  endDate             DateTime?        @map("end_date")
+  closedAt            DateTime?        @map("closed_at")
+  cancelledAt         DateTime?        @map("cancelled_at")
+  cancelReason        String?          @db.Text @map("cancel_reason")
+  status              String           @default("Draft") // 'Draft','Scheduled','In Progress','Completed','Closed','Cancelled'
+  totalAssets         Int              @default(0) @map("total_assets")
+  verifiedCount       Int              @default(0) @map("verified_count")
+  missingCount        Int              @default(0) @map("missing_count")
+  damagedCount        Int              @default(0) @map("damaged_count")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  createdBy           String?          @map("created_by")
+  updatedBy           String?          @map("updated_by")
+  deletedAt           DateTime?        @map("deleted_at")
 
-  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  department         Department?      @relation("scopeDepartmentId", fields: [scopeDepartmentId], references: [id], onDelete: SetNull)
-  auditors           AuditAuditor[]
-  items              AuditItem[]
+  organization        Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department          Department?      @relation("scopeDepartmentId", fields: [scopeDepartmentId], references: [id], onDelete: SetNull)
+  scopeCategory       AssetCategory?   @relation("auditScopeCategory", fields: [scopeCategoryId], references: [id], onDelete: SetNull)
+  auditors            AuditAuditor[]
+  items               AuditItem[]
+  discrepancies       AuditDiscrepancy[]
 
+  @@index([organizationId, status])
+  @@index([organizationId, scheduledStartDate])
   @@map("audit_cycles")
 }
 
 model AuditAuditor {
-  auditCycleId       String           @map("audit_cycle_id")
-  employeeId         String           @map("employee_id")
+  auditCycleId        String           @map("audit_cycle_id")
+  employeeId          String           @map("employee_id")
+  assignedAt          DateTime         @default(now()) @map("assigned_at")
+  assignedBy          String?          @map("assigned_by")
 
-  auditCycle         AuditCycle       @relation(fields: [auditCycleId], references: [id], onDelete: Cascade)
-  employee           Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  auditCycle          AuditCycle       @relation(fields: [auditCycleId], references: [id], onDelete: Cascade)
+  employee            Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@id([auditCycleId, employeeId])
   @@map("audit_auditors")
 }
 
 model AuditItem {
-  id                 String           @id @default(uuid())
-  auditCycleId       String           @map("audit_cycle_id")
-  assetId            String           @map("asset_id")
-  auditorId          String?          @map("auditor_id")
-  verificationStatus String           @default("Pending") @map("verification_status") // 'Pending', 'Verified', 'Missing', 'Damaged'
-  notes              String?          @db.Text
-  verifiedAt         DateTime?        @map("verified_at")
-  createdAt          DateTime         @default(now()) @map("created_at")
-  updatedAt          DateTime         @updatedAt @map("updated_at")
-  createdBy          String?          @map("created_by")
-  updatedBy          String?          @map("updated_by")
+  id                  String           @id @default(uuid())
+  auditCycleId        String           @map("audit_cycle_id")
+  assetId             String           @map("asset_id")
+  auditorId           String?          @map("auditor_id")
+  verificationStatus  String           @default("Pending") @map("verification_status") // 'Pending','Verified','Missing','Damaged','Not Verified'
+  notes               String?          @db.Text
+  physicalLocation    String?          @map("physical_location")
+  conditionOnVerify   String?          @map("condition_on_verify") // 'Good','Fair','Poor','Damaged'
+  verifiedAt          DateTime?        @map("verified_at")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  createdBy           String?          @map("created_by")
+  updatedBy           String?          @map("updated_by")
 
-  auditCycle         AuditCycle       @relation(fields: [auditCycleId], references: [id], onDelete: Cascade)
-  asset              Asset            @relation(fields: [assetId], references: [id], onDelete: Restrict)
-  auditor            Employee?        @relation("AuditItemAuditor", fields: [auditorId], references: [id], onDelete: SetNull)
+  auditCycle          AuditCycle       @relation(fields: [auditCycleId], references: [id], onDelete: Cascade)
+  asset               Asset            @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  auditor             Employee?        @relation("AuditItemAuditor", fields: [auditorId], references: [id], onDelete: SetNull)
+  evidence            AuditEvidence[]
 
+  @@unique([auditCycleId, assetId])
+  @@index([auditCycleId, verificationStatus])
   @@map("audit_items")
+}
+
+model AuditDiscrepancy {
+  id                  String           @id @default(uuid())
+  auditCycleId        String           @map("audit_cycle_id")
+  assetId             String           @map("asset_id")
+  discrepancyType     String           @map("discrepancy_type") // 'Missing','Damaged','Unexpected','Duplicate'
+  description         String           @db.Text
+  severity            String           @default("Medium") // 'Low','Medium','High','Critical'
+  resolvedAt          DateTime?        @map("resolved_at")
+  resolution          String?          @db.Text
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  createdBy           String?          @map("created_by")
+
+  auditCycle          AuditCycle       @relation(fields: [auditCycleId], references: [id], onDelete: Cascade)
+  asset               Asset            @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@index([auditCycleId, discrepancyType])
+  @@map("audit_discrepancies")
+}
+
+model AuditEvidence {
+  id                  String           @id @default(uuid())
+  auditItemId         String           @map("audit_item_id")
+  fileUrl             String           @map("file_url")
+  fileType            String           @map("file_type") // 'image','pdf','document'
+  caption             String?          @db.Text
+  uploadedBy          String           @map("uploaded_by")
+  createdAt           DateTime         @default(now()) @map("created_at")
+
+  auditItem           AuditItem        @relation(fields: [auditItemId], references: [id], onDelete: Cascade)
+
+  @@map("audit_evidence")
 }
 
 model Notification {
@@ -314,12 +388,49 @@ model Notification {
   relatedEntityType  String?          @map("related_entity_type")
   relatedEntityId    String?          @map("related_entity_id")
   isRead             Boolean          @default(false) @map("is_read")
+  status             String           @default("Unread") // 'Unread', 'Read', 'Archived'
   createdAt          DateTime         @default(now()) @map("created_at")
+  deletedAt          DateTime?        @map("deleted_at")
 
   organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   recipient          Employee         @relation(fields: [recipientId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId, recipientId, status])
+  @@index([organizationId, recipientId, createdAt])
   @@map("notifications")
+}
+
+model NotificationPreference {
+  id                 String           @id @default(uuid())
+  organizationId     String           @map("organization_id")
+  employeeId         String           @map("employee_id")
+  type               String           // e.g. 'all' or specific notification type
+  emailEnabled       Boolean          @default(true) @map("email_enabled")
+  inAppEnabled       Boolean          @default(true) @map("in_app_enabled")
+  pushEnabled        Boolean          @default(true) @map("push_enabled")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee           Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, type])
+  @@map("notification_preferences")
+}
+
+model NotificationTemplate {
+  id                 String           @id @default(uuid())
+  organizationId     String           @map("organization_id")
+  type               String           // e.g. 'Asset Assigned'
+  titleTemplate      String           @map("title_template")
+  bodyTemplate       String           @db.Text @map("body_template")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, type])
+  @@map("notification_templates")
 }
 
 model ActivityLog {
@@ -327,13 +438,23 @@ model ActivityLog {
   organizationId     String           @map("organization_id")
   userId             String?          @map("user_id")
   action             String
+  module             String?          // e.g., 'Auth', 'Asset', 'Booking', etc.
   entityType         String           @map("entity_type")
   entityId           String?          @map("entity_id")
-  details            Json?
+  oldValue           Json?            @map("old_value")
+  newValue           Json?            @map("new_value")
+  departmentId       String?          @map("department_id")
+  ipAddress          String?          @map("ip_address")
+  browser            String?
+  device             String?
+  requestId          String?          @map("request_id")
   createdAt          DateTime         @default(now()) @map("created_at")
 
   organization       Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user               Employee?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  department         Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
 
+  @@index([organizationId, userId, action])
+  @@index([organizationId, createdAt])
   @@map("activity_logs")
 }

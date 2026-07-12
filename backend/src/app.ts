@@ -8,6 +8,7 @@ import errorHandler from './middleware/errorHandler';
 import apiRouter from './routes';
 import * as response from './utils/response';
 import { AppError } from './core/errors/AppError';
+import { activityContextMiddleware } from './middleware/activity-context';
 
 const app = express();
 
@@ -25,6 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 // Trace ID and HTTP Request logs
 app.use(requestId);
 app.use(logRequest);
+app.use(activityContextMiddleware);
 
 // Health check endpoint
 app.get('/health', (_req, res) => {
