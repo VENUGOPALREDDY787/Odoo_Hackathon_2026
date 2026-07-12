@@ -52,7 +52,7 @@ export default function AssetRegistry() {
           <table className="w-full text-left border-collapse min-w-[980px]">
             <thead>
               <tr className="bg-black text-white uppercase text-xs font-black tracking-widest">
-                <th className="p-5">Asset</th><th className="p-5">Category</th><th className="p-5">Status</th><th className="p-5">Holder</th><th className="p-5">Location</th><th className="p-5">Condition</th><th className="p-5 text-right">Actions</th>
+                <th className="p-5">Asset</th><th className="p-5">Category</th><th className="p-5">Status</th><th className="p-5">Holder</th><th className="p-5">Location</th><th className="p-5">Condition</th><th className="p-5 text-right min-w-[230px]">Actions</th>
               </tr>
             </thead>
             <tbody className="font-bold">
@@ -70,9 +70,9 @@ export default function AssetRegistry() {
                   <td className="p-5 uppercase">{asset.location}</td>
                   <td className="p-5 uppercase">{asset.condition}</td>
                   <td className="p-5">
-                    <div className="flex justify-end gap-2">
-                      <NeoButton variant="white" className="px-4 py-2 text-xs" aria-label={`View history for ${asset.tag}`} onClick={() => alert(`${asset.tag} allocation and maintenance history opened.`)}><FileText size={16} /> History</NeoButton>
-                      <NeoButton variant="black" className="px-4 py-2 text-xs" onClick={() => alert(`QR generated for ${asset.tag}.`)}>QR</NeoButton>
+                    <div className="flex justify-end gap-3 whitespace-nowrap">
+                      <NeoButton variant="white" className="min-w-[108px] px-4 py-2 text-xs" aria-label={`View history for ${asset.tag}`} onClick={() => alert(`${asset.tag} allocation and maintenance history opened.`)}><FileText size={16} /> History</NeoButton>
+                      <NeoButton variant="black" className="min-w-[92px] px-4 py-2 text-xs" aria-label={`Generate QR code for ${asset.tag}`} onClick={() => alert(`QR generated for ${asset.tag}.`)}><QrCode size={16} /> QR</NeoButton>
                     </div>
                   </td>
                 </motion.tr>
